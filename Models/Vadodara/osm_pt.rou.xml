@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2024-12-11 11:47:30.003836 by osmWebWizard.py v1_21_0+0000-d7b3b481c43
+<configuration>
+    <net-file value="C:\Users\Kisha\Sumo\2024-12-11-11-46-08\osm.net.xml.gz"/>
+    <ptlines-file value="C:\Users\Kisha\Sumo\2024-12-11-11-46-08\osm_ptlines.xml"/>
+    <ptstops-file value="C:\Users\Kisha\Sumo\2024-12-11-11-46-08\osm_stops.add.xml"/>
+    <output-file value="C:\Users\Kisha\Sumo\2024-12-11-11-46-08\osm_pt.rou.xml"/>
+    <stopinfos-file value="C:\Users\Kisha\Sumo\2024-12-11-11-46-08\stopinfos.xml"/>
+    <routes-file value="C:\Users\Kisha\Sumo\2024-12-11-11-46-08\vehroutes.xml"/>
+    <trips-file value="C:\Users\Kisha\Sumo\2024-12-11-11-46-08\trips.trips.xml"/>
+    <min-stops value="0"/>
+    <extend-to-fringe value="True"/>
+    <random-begin value="True"/>
+    <seed value="42"/>
+    <ignore-errors value="True"/>
+    <vtype-prefix value="pt_"/>
+    <verbose value="True"/>
+</configuration>
+-->
+
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+    <vType id="pt_bus" vClass="bus"/>
+    <vType id="pt_tram" vClass="tram"/>
+    <vType id="pt_train" vClass="rail"/>
+    <vType id="pt_subway" vClass="subway"/>
+    <vType id="pt_light_rail" vClass="rail_urban"/>
+    <vType id="pt_monorail" vClass="rail_urban"/>
+    <vType id="pt_trolleybus" vClass="bus"/>
+    <vType id="pt_minibus" vClass="bus"/>
+    <vType id="pt_share_taxi" vClass="taxi"/>
+    <vType id="pt_aerialway" vClass="cable_car" length="2.5" width="2" personCapacity="4"/>
+    <vType id="pt_ferry" vClass="ship"/>
+    <route id="pt_train_12952:0" edges="966956028" >
+        <stop busStop="8490546712" duration="20" until="79.0"/> <!-- Vadodara Junction -->
+    </route>
+    <route id="pt_train_12954:0" edges="966956028" >
+        <stop busStop="8490546712" duration="20" until="79.0"/> <!-- Vadodara Junction -->
+    </route>
+    <route id="pt_train_12951:0" edges="1154036267 227351246#1 227398478 227351246#3 -1154036265 -29137959#5 -29137959#4 -29137959#3 710420527#0 710420527#1 710420527#2 -29137959#1 -29137959#0 -1314235072 -29548905#0 -1311243637 -1311408264 966956030 966956029#0 966956029#1 966956029#2 1314251559#0 914029913 873284382#4 873284382#5 873284382#6 873284382#7 873284382#8 873284382#9 1314251559#6 914022140 1314251558#0 1314251558#1 914022139 -975136905#2 -975136905#1 -975136905#0 807655237 29548913#0 29548913#1 29548913#2 29548913#3" >
+        <stop busStop="8490537129" duration="20" until="382.0"/> <!-- Vadodara Junction -->
+    </route>
+    <route id="pt_train_22414:0" edges="966956030" >
+        <stop busStop="8490537129" duration="20" until="89.0"/> <!-- Vadodara Junction -->
+    </route>
+    <route id="pt_train_12431:0" edges="1154036267 227351246#1 227398478 227351246#3 -1154036265 -29137959#5 -29137959#4 -29137959#3 710420527#0 710420527#1 710420527#2 -29137959#1 -29137959#0 -1314235072 -29548905#0 -1311243637 -1311408264 966956030 966956029#0 966956029#1 966956029#2 1314251559#0 914029913 873284382#4 873284382#5 873284382#6 873284382#7 873284382#8 873284382#9 1314251559#6 914022140 1314251558#0 1314251558#1 914022139 -975136905#2 -975136905#1 -975136905#0 807655237 29548913#0 29548913#1 29548913#2 29548913#3" >
+        <stop busStop="8490537129" duration="20" until="382.0"/> <!-- Vadodara Junction -->
+    </route>
+    <route id="pt_train_12432:0" edges="28939050#0 28939050#1 28939050#2 873284381#0 873284381#1 873284381#2 873284381#3 873284381#4 873284381#5 873284381#6 873284381#7 873284381#8 873284381#9 873284381#10 966956024 966956026 -966956027#1 -966956027#0 -1311243644#2 -1311243644#1 -1314235077 -966956029#0 914022134#0 914022134#1 914022134#2 -1314235074 -227398463#0 29548905#0 1314235072 -914023379 29137959#1 -710420527#2 -710420527#1 -710420527#0 29137959#3 29137959#4 29137959#5 29137959#6 584880991 29137959#8 29137959#9" >
+        <stop busStop="7553684175" duration="20" until="306.0"/> <!-- Vadodara Junction -->
+    </route>
+    <route id="pt_train_12953:0" edges="1154036267 227351246#1 227398478 227351246#3 -1154036265 -29137959#5 -29137959#4 -29137959#3 710420527#0 710420527#1 710420527#2 -29137959#1 -29137959#0 -1314235072 -29548905#0 -1311243637 -1311408264 966956030 966956029#0 966956029#1 966956029#2 1314251559#0 914029913 873284382#4 873284382#5 873284382#6 873284382#7 873284382#8 873284382#9 1314251559#6 914022140 1314251558#0 1314251558#1 914022139 -975136905#2 -975136905#1 -975136905#0 807655237 29548913#0 29548913#1 29548913#2 29548913#3" >
+        <stop busStop="8490537129" duration="20" until="375.0"/> <!-- Vadodara Junction -->
+    </route>
+    <route id="pt_train_22413:0" edges="1154036267 227351246#1 227398478 227351246#3 -1154036265 -29137959#5 -29137959#4 -29137959#3 710420527#0 710420527#1 710420527#2 -29137959#1 -29137959#0 -1314235072 -29548905#0 -1311243637 -1311408264 966956030 966956029#0 966956029#1 966956029#2 1314251559#0 914029913 873284382#4 873284382#5 873284382#6 873284382#7 873284382#8 873284382#9 1314251559#6 914022140 1314251558#0 1314251558#1 914022139 -975136905#2 -975136905#1 -975136905#0 807655237 29548913#0 29548913#1 29548913#2 29548913#3" >
+        <stop busStop="8490537129" duration="20" until="407.0"/> <!-- Vadodara Junction -->
+    </route>
+    <flow id="pt_train_12952:0" type="pt_train" route="pt_train_12952:0" begin="52.0" end="3652.0" period="600" line="12952:0" >
+        <param key="name" value="Train Rajdhani Express 12952: New Delhi → Mumbai Central"/>
+        <param key="completeness" value="0.17"/>
+    </flow>
+    <flow id="pt_train_12954:0" type="pt_train" route="pt_train_12954:0" begin="383.0" end="3983.0" period="600" line="12954:0" >
+        <param key="name" value="Train Rajdhani Express 12954: Hazrat Nizamuddin → Mumbai Central"/>
+        <param key="completeness" value="0.10"/>
+    </flow>
+    <flow id="pt_train_12951:0" type="pt_train" route="pt_train_12951:0" begin="15.0" end="3615.0" period="600" line="12951:0" >
+        <param key="name" value="Train Rajdhani Express 12951: Mumbai Central → New Delhi"/>
+        <param key="completeness" value="0.17"/>
+    </flow>
+    <flow id="pt_train_22414:0" type="pt_train" route="pt_train_22414:0" begin="535.0" end="4135.0" period="600" line="22414:0" >
+        <param key="name" value="Train Rajdhani Express 22414: Hazrat Nizamuddin → Madgaon"/>
+        <param key="completeness" value="0.11"/>
+    </flow>
+    <flow id="pt_train_12431:0" type="pt_train" route="pt_train_12431:0" begin="133.0" end="3733.0" period="600" line="12431:0" >
+        <param key="name" value="Rajdhani Express 12431: Thiruvananthapuram Central → Hazrat Nizamuddin"/>
+        <param key="completeness" value="0.05"/>
+    </flow>
+    <flow id="pt_train_12432:0" type="pt_train" route="pt_train_12432:0" begin="165.0" end="3765.0" period="600" line="12432:0" >
+        <param key="name" value="Rajdhani Express 12432: Hazrat Nizamuddin → Thiruvananthapuram Central"/>
+        <param key="completeness" value="0.05"/>
+    </flow>
+    <flow id="pt_train_12953:0" type="pt_train" route="pt_train_12953:0" begin="406.0" end="4006.0" period="600" line="12953:0" >
+        <param key="name" value="Train Rajdhani Express 12953: Mumbai Central → Hazrat Nizamuddin"/>
+        <param key="completeness" value="0.10"/>
+    </flow>
+    <flow id="pt_train_22413:0" type="pt_train" route="pt_train_22413:0" begin="441.0" end="4041.0" period="600" line="22413:0" >
+        <param key="name" value="Train Rajdhani Express 22413: Madgaon → Hazrat Nizamuddin"/>
+        <param key="completeness" value="0.11"/>
+    </flow>
+</routes>
