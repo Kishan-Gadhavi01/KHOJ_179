@@ -18,6 +18,37 @@ PROCESS_MOTORCYCLE = True
 PROCESS_PASSENGER = True
 PROCESS_PEDESTRIAN = False
 
+class VehicleManager:
+    def __init__(self):
+        pass
+
+    def add_vehicle(self, vehicle_id, vehicle_type, depart, from_edge, to_edge, depart_lane="best", speed=0):
+        traci.vehicle.add(vehicle_id, routeID="", typeID=vehicle_type, depart=depart, departLane=depart_lane, departSpeed=speed)
+        traci.vehicle.changeTarget(vehicle_id, to_edge)
+        traci.vehicle.setRoute(vehicle_id, [from_edge, to_edge])
+
+    def get_initial_position(self, vehicle_id):
+        return traci.vehicle.getRoute(vehicle_id)[0]
+
+    def set_initial_position(self, vehicle_id, from_edge):
+        route = traci.vehicle.getRoute(vehicle_id)
+        route[0] = from_edge
+        traci.vehicle.setRoute(vehicle_id, route)
+
+    def get_terminal_position(self, vehicle_id):
+        return traci.vehicle.getRoute(vehicle_id)[-1]
+
+    def set_terminal_position(self, vehicle_id, to_edge):
+        route = traci.vehicle.getRoute(vehicle_id)
+        route[-1] = to_edge
+        traci.vehicle.setRoute(vehicle_id, route)
+
+    def get_speed(self, vehicle_id):
+        return traci.vehicle.getSpeed(vehicle_id)
+
+    def set_speed(self, vehicle_id, speed):
+        traci.vehicle.setSpeed(vehicle_id, speed)
+
 def get_route_files_from_config(config_path):
     tree = ET.parse(config_path)
     root = tree.getroot()
@@ -81,14 +112,14 @@ def geo_to_cartesian(lat, lon, config_file):
     sumoCmd = ["sumo", "-c", config_file]
     try:
         traci.start(sumoCmd)
-        x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)        
+        x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
         return x, y
     except Exception as e:
         print(f"Error during conversion: {e}")
         return None
     finally:
         traci.close()
-        
+
 def geo_TO_edges(lat, lon, config_file):
     sumoCmd = ["sumo", "-c", config_file]
     try:
@@ -163,7 +194,7 @@ def update_file(file_path, updated_items):
     for new_item in updated_items_dict.values():
         if 'walk_edges' in new_item:
             existing_person = root.find(f".//person[@id='{new_item['id']}']")
-            
+
             if existing_person is not None:
                 root.remove(existing_person)
 
@@ -188,7 +219,7 @@ def update_file(file_path, updated_items):
 
 def initialize_file_structure(file_path):
     root = ET.Element('routes')
-    
+
     if "motorcycle" in file_path and PROCESS_MOTORCYCLE:
         create_motorcycle_structure(root)
     elif "passenger" in file_path and PROCESS_PASSENGER:
@@ -249,16 +280,40 @@ def clean_file(root):
         if not element.get('id'):
             root.remove(element)
 
+def run_simulation(config_file, duration=1000):
+    sumoCmd = ["sumo-gui", "-c", config_file]
+    traci.start(sumoCmd)
+
+    vehicle_paths = {}
+
+    for step in range(duration):
+        traci.simulationStep()
+        vehicle_ids = traci.vehicle.getIDList()
+        for vehicle_id in vehicle_ids:
+            position = traci.vehicle.getPosition(vehicle_id)
+            if vehicle_id not in vehicle_paths:
+                vehicle_paths[vehicle_id] = []
+            vehicle_paths[vehicle_id].append(position)
+        if step % 100 == 0:
+            print(f"Simulation step: {step}")
+
+    # vehicle paths
+    for vehicle_id in vehicle_paths.keys():
+        if vehicle_id in traci.vehicle.getIDList():
+            traci.gui.trackVehicle("View #0", vehicle_id)
+
+    traci.close()
+
 if __name__ == "__main__":
    # latitude = 22.349917
    # longitude = 73.173323
 #geo_to_cartesian(latitude,longitude,conf)
     #edges=geo_TO_edges(latitude,longitude,conf)
     #print(edges) # Not sorted acording to docstring
-    
+
     route_files = get_route_files_from_config(conf)
     vehicle_data_dict = gather_data(route_files)
-    
+
     additional_data = {
         'motorcycle': [
             {'id': 'motorcycle1', 'type': 'motorcycle_motorcycle', 'depart': '3599.96', 'departLane': 'best', 'from': '-922051277#0', 'to': '-29874027'}
@@ -270,10 +325,12 @@ if __name__ == "__main__":
             {'id': 'ped1', 'type': 'ped_pedestrian', 'depart': '4.00', 'walk_edges': ['29873850', '29873851']}
         ]
     }
-    
+
     for key, value in additional_data.items():
         vehicle_data_dict.setdefault(key, []).extend(value)
 
     update_data(vehicle_data_dict)
 
     print(gather_data(route_files))
+
+    run_simulation(conf, duration=1000)
