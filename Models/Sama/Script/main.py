@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 import traci
 from xml.dom import minidom
 import sumolib
-
+import math
 if 'SUMO_HOME' in os.environ:
     sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
 
@@ -17,6 +17,7 @@ network = sumolib.net.readNet(network_path)
 PROCESS_MOTORCYCLE = True
 PROCESS_PASSENGER = True
 PROCESS_PEDESTRIAN = False
+"""  --- temporary suspended ---
 
 class VehicleManager:
     def __init__(self):
@@ -48,7 +49,7 @@ class VehicleManager:
 
     def set_speed(self, vehicle_id, speed):
         traci.vehicle.setSpeed(vehicle_id, speed)
-
+"""
 def get_route_files_from_config(config_path):
     tree = ET.parse(config_path)
     root = tree.getroot()
@@ -280,9 +281,49 @@ def clean_file(root):
         if not element.get('id'):
             root.remove(element)
 
-def run_simulation(config_file, duration=1000):
+
+
+def create_filled_red_zone(lat, lon, radius, poly_id="red_zone"):
+    """
+    Creates a filled red circular overlay in SUMO at the given geolocation with the specified radius.
+    """
+    # Convert geolocation to SUMO Cartesian coordinates
+    x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
+    
+    # Generate points for the circle approximation
+    num_points = 72  # Higher values create a smoother circle
+    circle_points = []
+    for i in range(num_points):
+        angle = 2 * math.pi * i / num_points
+        point_x = x + radius * math.cos(angle)
+        point_y = y + radius * math.sin(angle)
+        circle_points.append((point_x, point_y))
+    
+    # Add the polygon to SUMO with a semi-transparent red fill
+    traci.polygon.add(
+        polygonID=poly_id,
+        shape=circle_points,
+        color=(255, 0, 0, 127),  # Red color with 50% opacity
+        layer=1
+    )
+    print(f"Filled red zone created with center at ({lat}, {lon}) and radius {radius}.")
+
+def run_simulation(config_file, duration=1000, red_zone_data=None):
+    """
+    Runs the simulation for the specified duration and optionally creates a red zone.
+    """
     sumoCmd = ["sumo-gui", "-c", config_file]
     traci.start(sumoCmd)
+
+    # Create the red zone if data is provided
+      # Create the red zone if data is provided
+    if red_zone_data:
+        print(f"Creating red zone with parameters: {red_zone_data}")
+        create_filled_red_zone(
+            lat=red_zone_data['lat'],
+            lon=red_zone_data['lon'],
+            radius=red_zone_data['radius']
+        )
 
     vehicle_paths = {}
 
@@ -297,23 +338,25 @@ def run_simulation(config_file, duration=1000):
         if step % 100 == 0:
             print(f"Simulation step: {step}")
 
-    # vehicle paths
+    # Track vehicle paths
     for vehicle_id in vehicle_paths.keys():
         if vehicle_id in traci.vehicle.getIDList():
             traci.gui.trackVehicle("View #0", vehicle_id)
 
     traci.close()
 
+
 if __name__ == "__main__":
-   # latitude = 22.349917
-   # longitude = 73.173323
-#geo_to_cartesian(latitude,longitude,conf)
-    #edges=geo_TO_edges(latitude,longitude,conf)
-    #print(edges) # Not sorted acording to docstring
+    # Define red zone parameters
+    red_zone_data = {
+        'lat': 22.349917,
+        'lon': 73.173323,
+        'radius': 500  # Adjust the radius as needed
+    }
 
     route_files = get_route_files_from_config(conf)
     vehicle_data_dict = gather_data(route_files)
-
+#
     additional_data = {
         'motorcycle': [
             {'id': 'motorcycle1', 'type': 'motorcycle_motorcycle', 'depart': '3599.96', 'departLane': 'best', 'from': '-922051277#0', 'to': '-29874027'}
@@ -333,4 +376,5 @@ if __name__ == "__main__":
 
     print(gather_data(route_files))
 
-    run_simulation(conf, duration=1000)
+    # Pass the red zone data to the simulation
+    run_simulation(conf, duration=1000, red_zone_data=red_zone_data)
