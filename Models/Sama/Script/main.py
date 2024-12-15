@@ -6,6 +6,7 @@ from xml.dom import minidom
 import sumolib
 import math
 import pandas as pd
+import random
 if 'SUMO_HOME' in os.environ:
     sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
 
@@ -166,6 +167,28 @@ def make_df(raw_dict):
         else:
             dataframes[key] = None
     return dataframes
+
+def update_column(df_dict, colname, filter_list=None, listt=None):
+
+    for key, df in df_dict.items():
+
+        if filter_list:
+            mask = df[colname].isin(filter_list)
+        else:
+            mask = [True] * len(df)
+        
+        if isinstance(listt, list):
+            if len(listt) > 1:
+                random_values = [random.choice(listt) for _ in range(len(df))]
+                df.loc[mask, colname] = random_values
+            else:
+                df.loc[mask, colname] = listt[0]
+        else:
+            df.loc[mask, colname] = listt
+    
+    return df_dict
+
+
 
 ############ //     
 
@@ -362,7 +385,6 @@ def run_simulation(config_file, duration=1000, red_zone_data=None):
     traci.start(sumoCmd)
 
     # Create the red zone if data is provided
-      # Create the red zone if data is provided
     if red_zone_data:
         print(f"Creating red zone with parameters: {red_zone_data}")
         create_filled_red_zone(
@@ -402,7 +424,7 @@ if __name__ == "__main__":
 
     route_files = get_route_files_from_config(conf)
     vehicle_data_dict = gather_data(route_files)
-#
+
     additional_data = {
         'motorcycle': [
             {'id': 'motorcycle1', 'type': 'motorcycle_motorcycle', 'depart': '3599.96', 'departLane': 'best', 'from': '-922051277#0', 'to': '-29874027'}
@@ -432,6 +454,11 @@ sama={
     'lon': 73.2003789006782,
     'radius': 10  # safe zone
 }
-print(len(geo_TO_edges(where=sama)))
+
+print(geo_TO_edges(where=sama))
+
+df = make_df(vehicle_data_dict)
+print(df["motorcycle"])
+print(df["passenger"])
 
 
