@@ -1,5 +1,5 @@
 <routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
 	<vType id="veh_passenger" vClass="passenger"/>
-	<trip id="veh0" type="veh_passenger" depart="0.00" departLane="best" from="29875742" to="-29873850"/>
-	<trip id="veh1" type="veh_passenger" depart="300.00" departLane="best" from="-29875742" to="29873850"/>
+	<trip id="veh0" type="veh_passenger" depart="0.00" departLane="best" from="29875742" to="1293567960"/>
+	<trip id="veh1" type="veh_passenger" depart="300.00" departLane="best" from="-29875742" to="1293567960"/>
 </routes>

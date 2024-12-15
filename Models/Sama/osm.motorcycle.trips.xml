@@ -1,5 +1,5 @@
 <routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
 	<vType id="motorcycle_motorcycle" vClass="motorcycle"/>
-	<trip id="motorcycle0" type="motorcycle_motorcycle" depart="0.00" departLane="best" from="-29875672#0" to="29873772#5"/>
-	<trip id="motorcycle1" type="motorcycle_motorcycle" depart="3599.96" departLane="best" from="-922051277#0" to="-29874027"/>
+	<trip id="motorcycle0" type="motorcycle_motorcycle" depart="0.00" departLane="best" from="-29875672#0" to="1293567960"/>
+	<trip id="motorcycle1" type="motorcycle_motorcycle" depart="3599.96" departLane="best" from="-922051277#0" to="1293567960"/>
 </routes>

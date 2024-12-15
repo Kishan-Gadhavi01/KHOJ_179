@@ -7,10 +7,9 @@ import sumolib
 import math
 import pandas as pd
 import random
+
 if 'SUMO_HOME' in os.environ:
     sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
-
-
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 network_path = os.path.abspath(os.path.join(script_directory, "../osm.net.xml.gz"))
@@ -168,26 +167,52 @@ def make_df(raw_dict):
             dataframes[key] = None
     return dataframes
 
+import random
+import pandas as pd
+import random
+import pandas as pd
+
+import random
+import pandas as pd
+
 def update_column(df_dict, colname, filter_list=None, listt=None):
-
+   
     for key, df in df_dict.items():
+        # Skip empty DataFrames
+        if df.empty:
+            print(f"Warning: DataFrame with key '{key}' is empty. Skipping.")
+            continue
 
+        # Skip DataFrames that don't contain the specified column
+        if colname not in df.columns:
+            print(f"Warning: Column '{colname}' does not exist in DataFrame with key '{key}'. Skipping.")
+            continue
+
+        # Create a mask based on the filter_list
         if filter_list:
             mask = df[colname].isin(filter_list)
         else:
-            mask = [True] * len(df)
-        
+            mask = pd.Series(True, index=df.index)  # Select all rows if no filter_list
+
+        # Update column based on listt
         if isinstance(listt, list):
             if len(listt) > 1:
-                random_values = [random.choice(listt) for _ in range(len(df))]
+                # Generate random values for filtered rows
+                random_values = [random.choice(listt) for _ in range(mask.sum())]
                 df.loc[mask, colname] = random_values
-            else:
+            elif len(listt) == 1:
+                # Assign single value from listt
                 df.loc[mask, colname] = listt[0]
+            else:
+                raise ValueError("The 'listt' parameter is an empty list.")
         else:
+            # Assign scalar value directly
             df.loc[mask, colname] = listt
-    
-    return df_dict
 
+        # Update the dictionary with the modified DataFrame
+        df_dict[key] = df
+
+    return df_dict
 
 
 ############ //     
@@ -445,7 +470,7 @@ if __name__ == "__main__":
     #print(gather_data(route_files))
 
     # Pass the red zone data to the simulation
-    #run_simulation(conf, duration=1000, red_zone_data=red_zone)
+    
 
     #print(len(geo_TO_edges(where=red_zone)))
 
@@ -461,4 +486,10 @@ df = make_df(vehicle_data_dict)
 print(df["motorcycle"])
 print(df["passenger"])
 
-
+update_column(df, "to",filter_list=None, listt=["1293567960"])
+print(df["motorcycle"])
+print(df["passenger"])
+dfd={key: dff.to_dict(orient="records") for key, dff in df.items()}
+print(dfd["passenger"])
+update_data(dfd)
+run_simulation(conf, duration=1000, red_zone_data=red_zone)
