@@ -5,8 +5,11 @@ import traci
 from xml.dom import minidom
 import sumolib
 import math
+import pandas as pd
 if 'SUMO_HOME' in os.environ:
     sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
+
+
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 network_path = os.path.abspath(os.path.join(script_directory, "../osm.net.xml.gz"))
@@ -17,7 +20,6 @@ network = sumolib.net.readNet(network_path)
 PROCESS_MOTORCYCLE = True
 PROCESS_PASSENGER = True
 PROCESS_PEDESTRIAN = False
-"""  --- temporary suspended ---
 
 class VehicleManager:
     def __init__(self):
@@ -49,7 +51,7 @@ class VehicleManager:
 
     def set_speed(self, vehicle_id, speed):
         traci.vehicle.setSpeed(vehicle_id, speed)
-"""
+
 def get_route_files_from_config(config_path):
     tree = ET.parse(config_path)
     root = tree.getroot()
@@ -121,18 +123,57 @@ def geo_to_cartesian(lat, lon, config_file):
     finally:
         traci.close()
 
-def geo_TO_edges(lat, lon, config_file):
-    sumoCmd = ["sumo", "-c", config_file]
-    try:
-        traci.start(sumoCmd)
-        x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
-        nearest_edge = network.getNeighboringEdges(x, y, r=10, includeJunctions=True, allowFallback=True)
-        return nearest_edge
-    except Exception as e:
-        print(f"Error during conversion: {e}")
+def geo_TO_edges(where, config_file=conf):
+
+    if where:
+
+        lat=where['lat']
+        lon=where['lon']
+        r=where['radius']
+
+        sumoCmd = ["sumo", "-c", config_file]
+       
+        try:
+            traci.start(sumoCmd)
+            x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
+            nearest_edge = network.getNeighboringEdges(x, y, r=r, includeJunctions=True, allowFallback=True)
+            return nearest_edge
+        except Exception as e:
+            print(f"Error during conversion: {e}")
+            return None
+        finally:
+            traci.close()
+    else:
         return None
-    finally:
-        traci.close()
+
+   
+
+############ //    
+
+
+
+
+############ Data manipulation  
+  
+def make_df(raw_dict):
+    dataframes = {}
+    for key, value in raw_dict.items():
+        if isinstance(value, list):
+            try:
+                dataframes[key] = pd.DataFrame(value)
+            except Exception as e:
+                dataframes[key] = None
+        else:
+            dataframes[key] = None
+    return dataframes
+
+############ //     
+
+
+
+
+
+############ File handling        
 
 def update_data(vehicle_data_dict):
     paths = get_route_files_from_config(conf)
@@ -281,7 +322,12 @@ def clean_file(root):
         if not element.get('id'):
             root.remove(element)
 
+############ //
 
+
+
+
+############ File handling        
 
 def create_filled_red_zone(lat, lon, radius, poly_id="red_zone"):
     """
@@ -348,7 +394,7 @@ def run_simulation(config_file, duration=1000, red_zone_data=None):
 
 if __name__ == "__main__":
     # Define red zone parameters
-    red_zone_data = {
+    red_zone= {
         'lat': 22.349917,
         'lon': 73.173323,
         'radius': 500  # Adjust the radius as needed
@@ -369,12 +415,23 @@ if __name__ == "__main__":
         ]
     }
 
-    for key, value in additional_data.items():
-        vehicle_data_dict.setdefault(key, []).extend(value)
+    #for key, value in additional_data.items():
+       # vehicle_data_dict.setdefault(key, []).extend(value)
 
-    update_data(vehicle_data_dict)
+    #update_data(vehicle_data_dict)
 
-    print(gather_data(route_files))
+    #print(gather_data(route_files))
 
     # Pass the red zone data to the simulation
-    run_simulation(conf, duration=1000, red_zone_data=red_zone_data)
+    #run_simulation(conf, duration=1000, red_zone_data=red_zone)
+
+    #print(len(geo_TO_edges(where=red_zone)))
+
+sama={ 
+    'lat': 22.343487781264088,
+    'lon': 73.2003789006782,
+    'radius': 10  # safe zone
+}
+print(len(geo_TO_edges(where=sama)))
+
+
