@@ -52,7 +52,7 @@ class VehicleManager:
     def set_speed(self, vehicle_id, speed):
         traci.vehicle.setSpeed(vehicle_id, speed)
 
-def get_route_files_from_config(config_path):
+def get_route_files_from_config(config_path, script_directory):
     tree = ET.parse(config_path)
     root = tree.getroot()
     input_section = root.find('input')
@@ -132,7 +132,7 @@ def geo_TO_edges(where, config_file=conf):
         r=where['radius']
 
         sumoCmd = ["sumo", "-c", config_file]
-       
+
         try:
             traci.start(sumoCmd)
             x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
@@ -146,15 +146,15 @@ def geo_TO_edges(where, config_file=conf):
     else:
         return None
 
-   
-
-############ //    
 
 
+############ //
 
 
-############ Data manipulation  
-  
+
+
+############ Data manipulation
+
 def make_df(raw_dict):
     dataframes = {}
     for key, value in raw_dict.items():
@@ -176,7 +176,7 @@ import random
 import pandas as pd
 
 def update_column(df_dict, colname, filter_list=None, listt=None):
-   
+
     for key, df in df_dict.items():
         # Skip empty DataFrames
         if df.empty:
@@ -215,16 +215,16 @@ def update_column(df_dict, colname, filter_list=None, listt=None):
     return df_dict
 
 
-############ //     
+############ //
 
 
 
 
 
-############ File handling        
+############ File handling
 
-def update_data(vehicle_data_dict):
-    paths = get_route_files_from_config(conf)
+def update_data(vehicle_data_dict, conf):
+    paths = get_route_files_from_config(conf, os.path.dirname(os.path.abspath(__file__)))
     for key, updated_items in vehicle_data_dict.items():
         if (key == 'motorcycle' and PROCESS_MOTORCYCLE) or \
            (key == 'passenger' and PROCESS_PASSENGER) or \
@@ -350,7 +350,7 @@ def create_passenger_structure(root):
         'depart': '0.00',
         'departLane': 'best',
         'from': '29875742',
-        'to': '-29873850'
+        'to': '29873850'
     })
     root.append(trip)
 
@@ -375,7 +375,8 @@ def clean_file(root):
 
 
 
-############ File handling        
+############ File handling
+
 
 def create_filled_red_zone(lat, lon, radius, poly_id="red_zone"):
     """
@@ -383,7 +384,7 @@ def create_filled_red_zone(lat, lon, radius, poly_id="red_zone"):
     """
     # Convert geolocation to SUMO Cartesian coordinates
     x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
-    
+
     # Generate points for the circle approximation
     num_points = 72  # Higher values create a smoother circle
     circle_points = []
@@ -392,17 +393,74 @@ def create_filled_red_zone(lat, lon, radius, poly_id="red_zone"):
         point_x = x + radius * math.cos(angle)
         point_y = y + radius * math.sin(angle)
         circle_points.append((point_x, point_y))
-    
-    # Add the polygon to SUMO with a semi-transparent red fill
+
     traci.polygon.add(
         polygonID=poly_id,
         shape=circle_points,
-        color=(255, 0, 0, 127),  # Red color with 50% opacity
+        color=(255, 0, 0, 127),
+        fill=True,
         layer=1
     )
     print(f"Filled red zone created with center at ({lat}, {lon}) and radius {radius}.")
 
-def run_simulation(config_file, duration=1000, red_zone_data=None):
+def add_polygon(id, edges, color):
+    """
+    Adds a colored polygon to visualize the route.
+    """
+    if not isinstance(edges, (list, tuple)):
+        raise TypeError("Edges should be a list or tuple of edge IDs.")
+
+    if traci.simulation.getMinExpectedNumber() <= 0:
+        print(f"Warning: Simulation not active. Cannot add polygon '{id}'.")
+        return
+
+    points = []
+    for edge in edges:
+        if network.hasEdge(edge):
+            shape = network.getEdge(edge).getShape()
+            if shape:
+                points.extend(shape)
+
+    if not points:
+        print(f"Warning: No shape points for polygon '{id}'. Polygon not added.")
+        return
+
+    if id in traci.polygon.getIDList():
+        traci.polygon.remove(id)
+
+    # Add new polygon
+    traci.polygon.add(
+        polygonID=id,
+        shape=points,
+        color=color,
+        layer=1,
+        fill=True
+    )
+
+
+
+
+def update_route_visualizations():
+    """
+    Updates the route visualizations of all passenger vehicles.
+    """
+    for veh_id in traci.vehicle.getIDList():
+        if traci.vehicle.getVehicleClass(veh_id) == "passenger":
+            route = traci.vehicle.getRoute(veh_id)
+
+            # Use the route directly as it provides the list of edge IDs
+            traveled_edges = route
+
+            # Alternatively, truncate `route` if required
+            # traveled_edges = route[:len_to_travel]  # Adjust len_to_travel
+
+            polygon_id = f"polygon_{veh_id}"
+            color = (255, 0, 0, 120)
+
+            add_polygon(polygon_id, traveled_edges, color)
+
+
+def run_simulation(config_file, duration=1000, red_zone_data=None, vehicle_data_dict=None):
     """
     Runs the simulation for the specified duration and optionally creates a red zone.
     """
@@ -419,6 +477,9 @@ def run_simulation(config_file, duration=1000, red_zone_data=None):
         )
 
     vehicle_paths = {}
+    vehicle_colors = {}
+
+    passenger_ids = [v['id'] for v in vehicle_data_dict.get('passenger', [])]
 
     for step in range(duration):
         traci.simulationStep()
@@ -427,7 +488,11 @@ def run_simulation(config_file, duration=1000, red_zone_data=None):
             position = traci.vehicle.getPosition(vehicle_id)
             if vehicle_id not in vehicle_paths:
                 vehicle_paths[vehicle_id] = []
+                vehicle_colors[vehicle_id] = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), 255)
             vehicle_paths[vehicle_id].append(position)
+            if len(vehicle_paths[vehicle_id]) > 100:
+                vehicle_paths[vehicle_id].pop(0)
+            update_route_visualizations()
         if step % 100 == 0:
             print(f"Simulation step: {step}")
 
@@ -438,16 +503,15 @@ def run_simulation(config_file, duration=1000, red_zone_data=None):
 
     traci.close()
 
-
 if __name__ == "__main__":
     # Define red zone parameters
-    red_zone= {
+    red_zone = {
         'lat': 22.349917,
         'lon': 73.173323,
         'radius': 500  # Adjust the radius as needed
     }
 
-    route_files = get_route_files_from_config(conf)
+    route_files = get_route_files_from_config(conf, script_directory)
     vehicle_data_dict = gather_data(route_files)
 
     additional_data = {
@@ -465,31 +529,30 @@ if __name__ == "__main__":
     #for key, value in additional_data.items():
        # vehicle_data_dict.setdefault(key, []).extend(value)
 
-    #update_data(vehicle_data_dict)
+    #update_data(vehicle_data_dict, conf)
 
     #print(gather_data(route_files))
 
     # Pass the red zone data to the simulation
-    
 
-    #print(len(geo_TO_edges(where=red_zone)))
+    #print(len(geo_TO_edges(where=red_zone, config_file=conf)))
 
-sama={ 
-    'lat': 22.343487781264088,
-    'lon': 73.2003789006782,
-    'radius': 10  # safe zone
-}
+    sama = {
+        'lat': 22.343487781264088,
+        'lon': 73.2003789006782,
+        'radius': 10  # safe zone
+    }
 
-print(geo_TO_edges(where=sama))
+    print(geo_TO_edges(where=sama, config_file=conf))
 
-df = make_df(vehicle_data_dict)
-print(df["motorcycle"])
-print(df["passenger"])
+    df = make_df(vehicle_data_dict)
+    print(df["motorcycle"])
+    print(df["passenger"])
 
-update_column(df, "to",filter_list=None, listt=["1293567960"])
-print(df["motorcycle"])
-print(df["passenger"])
-dfd={key: dff.to_dict(orient="records") for key, dff in df.items()}
-print(dfd["passenger"])
-update_data(dfd)
-run_simulation(conf, duration=1000, red_zone_data=red_zone)
+    update_column(df, "to", filter_list=None, listt=["1293567960"])
+    print(df["motorcycle"])
+    print(df["passenger"])
+    dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
+    print(dfd["passenger"])
+    update_data(dfd, conf)
+    run_simulation(conf, duration=1000, red_zone_data=red_zone, vehicle_data_dict=vehicle_data_dict)
