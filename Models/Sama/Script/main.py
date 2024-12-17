@@ -167,13 +167,6 @@ def make_df(raw_dict):
             dataframes[key] = None
     return dataframes
 
-import random
-import pandas as pd
-import random
-import pandas as pd
-
-import random
-import pandas as pd
 
 def update_column(df_dict, colname, filter_list=None, listt=None):
 
@@ -214,6 +207,56 @@ def update_column(df_dict, colname, filter_list=None, listt=None):
 
     return df_dict
 
+def generate_entries(df, noOfEntries, name, delay=10, from_list=None, to_list=None):
+    """
+    Generate new sequential entries for the DataFrame ensuring depart times continue from the last entry.
+    """
+    # Extract prefix and last ID count from the existing DataFrame
+    if not df.empty:
+        last_id = df['id'].iloc[-1]
+        prefix = ''.join([i for i in last_id if not i.isdigit()])
+        last_count = int(''.join(filter(str.isdigit, last_id)))
+        # Start the delay from the last depart value
+        last_depart = float(df['depart'].iloc[-1])
+    else:
+        # Defaults if the DataFrame is empty
+        prefix, last_count, last_depart = "entry", 0, 0.0
+
+    # Determine type based on the passed name
+    type_mapping = {
+        'motorcycle': 'motorcycle_motorcycle',
+        'passenger': 'veh_passenger',
+        'pedestrian': 'ped_pedestrian'
+    }
+    df_type = type_mapping.get(name, 'unknown_type')
+
+    # Fixed fields
+    departLane = 'best'
+
+    # Generate entries
+    for i in range(1, noOfEntries + 1):
+        # Increment the ID
+        new_id = f"{prefix}{last_count + i}"
+        # Continue depart time sequentially
+        new_depart = last_depart + (delay * i)
+        from_value = random.choice(from_list) if len(from_list) > 1 else from_list[0]
+        to_value = random.choice(to_list) if len(to_list) > 1 else to_list[0]
+
+        # Create the new entry
+        new_entry = {
+            'id': new_id,
+            'type': df_type,
+            'depart': f"{new_depart:.2f}",  # Ensure two decimal places
+            'departLane': departLane,
+            'from': from_value,
+            'to': to_value
+        }
+
+        # Add additional fields for pedestrians (walk_edges)
+        if 'walk_edges' in df.columns:
+            new_entry['walk_edges'] = [from_value, to_value]
+
+        yield new_entry
 
 ############ //
 
@@ -503,6 +546,10 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, vehicle_data_
 
     traci.close()
 
+
+
+
+
 if __name__ == "__main__":
     # Define red zone parameters
     red_zone = {
@@ -513,6 +560,7 @@ if __name__ == "__main__":
 
     route_files = get_route_files_from_config(conf, script_directory)
     vehicle_data_dict = gather_data(route_files)
+
 
     additional_data = {
         'motorcycle': [
@@ -526,12 +574,24 @@ if __name__ == "__main__":
         ]
     }
 
-    #for key, value in additional_data.items():
-       # vehicle_data_dict.setdefault(key, []).extend(value)
+    df = make_df(vehicle_data_dict)
+    print(df["motorcycle"])
+    print(df["passenger"])
+
+    # #Generate new entries for 'motorcycle'
+    # new_motorcycle_entries = list(generate_entries(
+    #     df['passenger'],
+    #     noOfEntries=10,
+    #     name='passenger',
+    #     delay=30,
+    #     from_list=['-922051277#0'],
+    #     to_list=['-29874027']
+    # ))
 
     #update_data(vehicle_data_dict, conf)
 
-    #print(gather_data(route_files))
+    # # Convert the updated dictionary of DataFrames back to a dict of records
+    # dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
 
     # Pass the red zone data to the simulation
 

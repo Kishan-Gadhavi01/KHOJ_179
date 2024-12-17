@@ -1,4 +1,0 @@
-Warning: Teleporting vehicle '5_train_12953:0'; frontal collision with vehicle '3_train_12432:0', lane='-29137959#4_0', gap=-1.00, time=641.00, stage=move.
-Warning: Vehicle '5_train_12953:0' ends teleporting on edge '-29137959#3', time=641.00.
-Warning: Teleporting vehicle '6_train_22413:0'; frontal collision with vehicle '3_train_12432:0', lane='-29137959#5_0', gap=-1.00, time=659.00, stage=move.
-Warning: Vehicle '6_train_22413:0' ends teleporting on edge '-29137959#4', time=659.00.

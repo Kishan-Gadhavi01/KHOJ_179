@@ -1,5 +1,14 @@
 <routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
 	<vType id="motorcycle_motorcycle" vClass="motorcycle"/>
 	<trip id="motorcycle0" type="motorcycle_motorcycle" depart="0.00" departLane="best" from="-29875672#0" to="1293567960"/>
-	<trip id="motorcycle1" type="motorcycle_motorcycle" depart="3599.96" departLane="best" from="-922051277#0" to="1293567960"/>
+	<trip id="motorcycle1" type="motorcycle_motorcycle" depart="10.00" departLane="best" from="-922051277#0" to="1293567960"/>
+	<trip id="motorcycle2" type="motorcycle_motorcycle" depart="20.00" departLane="best" from="-922051277#0" to="1293567960"/>
+	<trip id="motorcycle3" type="motorcycle_motorcycle" depart="30.00" departLane="best" from="-922051277#0" to="1293567960"/>
+	<trip id="motorcycle4" type="motorcycle_motorcycle" depart="40.00" departLane="best" from="-922051277#0" to="1293567960"/>
+	<trip id="motorcycle5" type="motorcycle_motorcycle" depart="50.00" departLane="best" from="-922051277#0" to="1293567960"/>
+	<trip id="motorcycle6" type="motorcycle_motorcycle" depart="60.00" departLane="best" from="-922051277#0" to="1293567960"/>
+	<trip id="motorcycle7" type="motorcycle_motorcycle" depart="70.00" departLane="best" from="-922051277#0" to="1293567960"/>
+	<trip id="motorcycle8" type="motorcycle_motorcycle" depart="80.00" departLane="best" from="-922051277#0" to="1293567960"/>
+	<trip id="motorcycle9" type="motorcycle_motorcycle" depart="90.00" departLane="best" from="-922051277#0" to="1293567960"/>
+	<trip id="motorcycle10" type="motorcycle_motorcycle" depart="100.00" departLane="best" from="-922051277#0" to="1293567960"/>
 </routes>
