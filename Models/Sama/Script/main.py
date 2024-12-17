@@ -512,67 +512,66 @@ if __name__ == "__main__":
     df = make_df(vehicle_data_dict)
     print(df["motorcycle"])
     print(df["passenger"])
-    #Generate new entries for 'motorcycle'
-    new_motorcycle_entries = list(generate_entries(
-        df['passenger'],
-        noOfEntries=10,
-        name='passenger',
-        delay=30,
-        from_list=['-922051277#0'],
-        to_list=['-29874027']
-    ))
+    
+    # #Generate new entries for 'motorcycle'
+    # new_motorcycle_entries = list(generate_entries(
+    #     df['passenger'],
+    #     noOfEntries=10,
+    #     name='passenger',
+    #     delay=30,
+    #     from_list=['-922051277#0'],
+    #     to_list=['-29874027']
+    # ))
 
-    # Append the new entries back to the 'motorcycle' DataFrame
-    df['passenger'] = pd.concat(
-        [df['passenger'], pd.DataFrame(new_motorcycle_entries)],
-        ignore_index=True
-    )
+    # # Append the new entries back to the 'motorcycle' DataFrame
+    # df['passenger'] = pd.concat(
+    #     [df['passenger'], pd.DataFrame(new_motorcycle_entries)],
+    #     ignore_index=True
+    # )
 
-    # Convert the updated dictionary of DataFrames back to a dict of records
-    dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
+    # # Convert the updated dictionary of DataFrames back to a dict of records
+    # dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
 
-    # Call your update function (if it processes the dict of dicts)
-    update_data(dfd)
-
-
+    # # Call your update function (if it processes the dict of dicts)
+    # update_data(dfd)
 
 
-    #for key, value in additional_data.items():
-       # vehicle_data_dict.setdefault(key, []).extend(value)
 
-    #update_data(vehicle_data_dict)
 
-    #print(gather_data(route_files))
+    # #for key, value in additional_data.items():
+    #    # vehicle_data_dict.setdefault(key, []).extend(value)
 
-    # Pass the red zone data to the simulation
+    # #update_data(vehicle_data_dict)
+
+    # #print(gather_data(route_files))
+
+    # # Pass the red zone data to the simulation
     
 
-    #print(len(geo_TO_edges(where=red_zone)))
+    # #print(len(geo_TO_edges(where=red_zone)))
 
-    # sama={ 
-    #     'lat': 22.343487781264088,
-    #     'lon': 73.2003789006782,
-    #     'radius': 10  # safe zone
-    # }
+    # # sama={ 
+    # #     'lat': 22.343487781264088,
+    # #     'lon': 73.2003789006782,
+    # #     'radius': 10  # safe zone
+    # # }
 
-    # print(geo_TO_edges(where=sama))
+    # # print(geo_TO_edges(where=sama))
 
    
 
-    update_column(df, "to",filter_list=None, listt=["1293567960"])
-    # Convert the updated dictionary of DataFrames back to a dict of records
-    dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
+    # update_column(df, "to",filter_list=None, listt=["1293567960"])
+    # # Convert the updated dictionary of DataFrames back to a dict of records
+    # dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
 
-    # Call your update function (if it processes the dict of dicts)
-    update_data(dfd)
-    #print(df["motorcycle"])
-    #print(df["passenger"])
+    # # Call your update function (if it processes the dict of dicts)
+    # update_data(dfd)
+    # #print(df["motorcycle"])
+    # #print(df["passenger"])
     
-    #print(dfd["passenger"])
+    # #print(dfd["passenger"])
     
-    
-
-    # Check the results
-    # print(dfd["motorcycle"])
-    # print(dfd["passenger"])
-    run_simulation(conf, duration=1000, red_zone_data=red_zone) 
+    # # Check the results
+    # # print(dfd["motorcycle"])
+    # # print(dfd["passenger"])
+    # run_simulation(conf, duration=1000, red_zone_data=red_zone) 
