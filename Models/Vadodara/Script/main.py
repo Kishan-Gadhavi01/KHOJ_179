@@ -132,7 +132,7 @@ def geo_TO_edges(where, config_file=conf):
         r=where['radius']
 
         sumoCmd = ["sumo", "-c", config_file]
-       
+
         try:
             traci.start(sumoCmd)
             x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
@@ -147,15 +147,15 @@ def geo_TO_edges(where, config_file=conf):
     else:
         return None
 
-   
-
-############ //    
 
 
+############ //
 
 
-############ Data manipulation  
-  
+
+
+############ Data manipulation
+
 def make_df(raw_dict):
     dataframes = {}
     for key, value in raw_dict.items():
@@ -170,7 +170,7 @@ def make_df(raw_dict):
 
 
 def update_column(df_dict, colname, filter_list=None, listt=None):
-   
+
     for key, df in df_dict.items():
         # Skip empty DataFrames
         if df.empty:
@@ -259,13 +259,13 @@ def generate_entries(df, noOfEntries, name, delay=10, from_list=None, to_list=No
 
         yield new_entry
 
-############ //     
+############ //
 
 
 
 
 
-############ File handling        
+############ File handling
 
 def update_data(vehicle_data_dict):
     paths = get_route_files_from_config(conf)
@@ -419,50 +419,133 @@ def clean_file(root):
 
 
 
-############ File handling        
+############ File handling
 
 def create_filled_red_zone(lat, lon, radius, poly_id="red_zone"):
-    """
-    Creates a filled red circular overlay in SUMO at the given geolocation with the specified radius.
-    """
-    # Convert geolocation to SUMO Cartesian coordinates
     x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
-    
-    # Generate points for the circle approximation
-    num_points = 72  # Higher values create a smoother circle
+
+    # generate points for the circle approximation
+    num_points = 72  # higher values create a smoother circle
     circle_points = []
     for i in range(num_points):
         angle = 2 * math.pi * i / num_points
         point_x = x + radius * math.cos(angle)
         point_y = y + radius * math.sin(angle)
         circle_points.append((point_x, point_y))
-    
-    # Add the polygon to SUMO with a semi-transparent red fill
+
+    # add the polygon to SUMO with a semi-transparent red fill
     traci.polygon.add(
         polygonID=poly_id,
         shape=circle_points,
-        color=(255, 0, 0, 127),  # Red color with 50% opacity
+        color=(255, 0, 0, 127),
         layer=1
     )
     print(f"Filled red zone created with center at ({lat}, {lon}) and radius {radius}.")
 
-def run_simulation(config_file, duration=1000, red_zone_data=None):
+def create_filled_zone(lat, lon, radius, poly_id="zone", color=(255, 0, 0, 127)):
+    x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
+
+    # generate points for the circle approximation
+    num_points = 72  # higher values create a smoother circle
+    circle_points = []
+    for i in range(num_points):
+        angle = 2 * math.pi * i / num_points
+        point_x = x + radius * math.cos(angle)
+        point_y = y + radius * math.sin(angle)
+        circle_points.append((point_x, point_y))
+
+    traci.polygon.add(
+        polygonID=poly_id,
+        shape=circle_points,
+        color=color,
+        fill=True,
+        layer=1
+    )
+    print(f"Filled zone created with center at ({lat}, {lon}) and radius {radius}.")
+
+# dictionary to store traveled paths for each vehicle
+vehicle_trails = {}
+
+
+# Optional: Update the vehicle trail for a single vehicle (shorter version)
+def update_vehicle_trail(veh_id, path, color):
+    polygon_id = f"trail_{veh_id}"
+
+    # check and remove existing polygon for the vehicle
+    if polygon_id in traci.polygon.getIDList():
+        traci.polygon.remove(polygon_id)
+
+    # add a new polygon with the updated path
+    traci.polygon.add(
+        polygonID=polygon_id,
+        shape=path,
+        color=color,
+        layer=10,  # high layer to ensure it's visible on top
+        fill=False
+    )
+
+def update_vehicle_trails():
     """
-    Runs the simulation for the specified duration and optionally creates a red zone.
+    Tracks and visualizes the vehicle trail (route) dynamically as polygons.
     """
+    for veh_id in traci.vehicle.getIDList():
+        position = traci.vehicle.getPosition(veh_id)  # (x, y)
+
+        if veh_id not in vehicle_trails:
+            vehicle_trails[veh_id] = [position]
+        else:
+            vehicle_trails[veh_id].append(position)
+
+        # draw trail using a unique polygon ID per vehicle
+        trail_points = vehicle_trails[veh_id]
+
+        if len(trail_points) > 100:  # limit to 100 points for performance
+            trail_points = trail_points[-100:]
+            vehicle_trails[veh_id] = trail_points
+
+        # add polygon for the trail (remove existing one to update)
+        polygon_id = f"trail_{veh_id}"
+        if polygon_id in traci.polygon.getIDList():
+            traci.polygon.remove(polygon_id)  # remove previous polygon
+
+        # add the new polygon (polyline-like trail)
+        traci.polygon.add(
+            polygonID=polygon_id,
+            shape=trail_points,
+            color=(0, 255, 0, 100),
+            layer=1,
+            fill=False
+        )
+
+def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_data=None, vehicle_data_dict=None):
     sumoCmd = ["sumo-gui", "-c", config_file]
     traci.start(sumoCmd)
 
-    # Create the red zone if data is provided
     if red_zone_data:
-        print(f"Creating red zone with parameters: {red_zone_data}")
-        create_filled_red_zone(
-            lat=red_zone_data['lat'],
-            lon=red_zone_data['lon'],
-            radius=red_zone_data['radius']
+        for i, red_zone in enumerate(red_zone_data):
+            print(f"Creating red zone {i+1} with parameters: {red_zone}")
+            create_filled_zone(
+                lat=red_zone['lat'],
+                lon=red_zone['lon'],
+                radius=red_zone['radius'],
+                poly_id=f"red_zone_{i+1}",
+                color=(255, 0, 0, 127)  # Red
+            )
+
+    if safe_zone_data:
+        print(f"Creating safe zone with parameters: {safe_zone_data}")
+        create_filled_zone(
+            lat=safe_zone_data['lat'],
+            lon=safe_zone_data['lon'],
+            radius=safe_zone_data['radius'],
+            poly_id="safe_zone",
+            color=(0, 255, 0, 127)  # Green
         )
 
     vehicle_paths = {}
+    vehicle_colors = {}
+
+    passenger_ids = [v['id'] for v in vehicle_data_dict.get('passenger', [])]
 
     for step in range(duration):
         traci.simulationStep()
@@ -471,11 +554,16 @@ def run_simulation(config_file, duration=1000, red_zone_data=None):
             position = traci.vehicle.getPosition(vehicle_id)
             if vehicle_id not in vehicle_paths:
                 vehicle_paths[vehicle_id] = []
+                vehicle_colors[vehicle_id] = (random.randint(0, 255),
+                                            random.randint(0, 255),
+                                            random.randint(0, 255), 255)
             vehicle_paths[vehicle_id].append(position)
+            if len(vehicle_paths[vehicle_id]) > 100:
+                vehicle_paths[vehicle_id].pop(0)
+            update_vehicle_trail(vehicle_id, vehicle_paths[vehicle_id], vehicle_colors[vehicle_id])
         if step % 100 == 0:
             print(f"Simulation step: {step}")
 
-    # Track vehicle paths
     for vehicle_id in vehicle_paths.keys():
         if vehicle_id in traci.vehicle.getIDList():
             traci.gui.trackVehicle("View #0", vehicle_id)
@@ -487,34 +575,42 @@ def run_simulation(config_file, duration=1000, red_zone_data=None):
 
 
 if __name__ == "__main__":
-
     # Define red zone parameters
-    red_zone= {
-        'lat': 22.337596640722587,
-        'lon': 73.20499195576231,
-        'radius': 500  # Adjust the radius as needed
-    }
-    green_zone= {
+    red_zones = [
+        {
+            'lat': 22.337596640722587,
+            'lon': 73.20499195576231,
+            'radius': 500  # Adjust the radius as needed
+        },
+        {
+            'lat': 22.335588,
+            'lon': 73.177759,
+            'radius': 500
+        }
+    ]
+
+    # Define safe zone parameters
+    green_zone = {
         'lat': 22.32997547443082,
         'lon': 73.14689077865691,
-        'radius': 10  # Adjust the radius as needed
+        'radius': 300
     }
 
-    Redges=geo_TO_edges(where=red_zone)
-    gedges=geo_TO_edges(where=green_zone)    
-   
+    Redges = [geo_TO_edges(where=zone) for zone in red_zones]
+    gedges = geo_TO_edges(where=green_zone)
+
     route_files = get_route_files_from_config(conf)
     vehicle_data_dict = gather_data(route_files)
 
     df = make_df(vehicle_data_dict)
 
     all_edges = network.getEdges()
-
+    print(all_edges)
     # Extract edge IDs
     edge_ids = [edge.getID() for edge in all_edges]
-    print(edge_ids)  
+    print(edge_ids)
 
-    #Generate new entries for 'motorcycle'
+    # Generate new entries for 'motorcycle'
     new_motorcycle = list(generate_entries(
         df['motorcycle'],
         noOfEntries=100,
@@ -524,7 +620,7 @@ if __name__ == "__main__":
         to_list=edge_ids
     ))
 
-    #Generate new entries for 'motorcycle'
+    # Generate new entries for 'passenger'
     new_passenger = list(generate_entries(
         df['passenger'],
         noOfEntries=100,
@@ -549,11 +645,4 @@ if __name__ == "__main__":
     dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
     update_data(dfd)
 
-    
-
-    #gedges=geo_TO_edges(where=green_zone)
-    #print(gedges)
-
-    #print(df["motorcycle"])
-    #print(df["passenger"])
-    run_simulation(conf, duration=1000, red_zone_data=red_zone) 
+    run_simulation(conf, duration=1000, red_zone_data=red_zones, safe_zone_data=green_zone, vehicle_data_dict=vehicle_data_dict)

@@ -16,6 +16,8 @@
         <tls.actuated.jam-threshold value="30"/>
     </processing>
 
+    <max-num-vehicles value="500"/>
+
     <routing>
         <device.rerouting.adaptation-steps value="18"/>
         <device.rerouting.adaptation-interval value="10"/>
