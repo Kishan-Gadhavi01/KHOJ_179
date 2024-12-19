@@ -1,4 +1,6 @@
 import os
+import threading
+
 import sys
 import xml.etree.ElementTree as ET
 import traci
@@ -539,9 +541,66 @@ def update_vehicle_trails():
             layer=1,
             fill=False
         )
+got=[]
+def monitor_all_edges_and_lanes(edges):
+    global got
+    while traci.simulation.getMinExpectedNumber() > 0:
+        for edge in edges:
+            vehicle_count = traci.edge.getLastStepVehicleNumber(edge)
+            if vehicle_count > 10:
+                got.append([edge, vehicle_count])
+        traci.simulationStep()  # Ensure the monitoring thread keeps pace with simulation steps
 
-def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_data=None, vehicle_data_dict=None):
-    sumoCmd = ["sumo-gui", "-c", config_file]
+# Main simulation code
+def main( ):
+    red_zones = [
+            { # siddharth bungalows , sama
+                'lat': 22.33779597622535,
+                'lon': 73.20539458409085,
+                'radius': 1000  # Adjust the radius as needed
+            },
+            { # random near
+                'lat':22.321066599415307,
+                'lon': 73.19607730306171,
+                'radius': 1000
+            }
+        ]
+
+    # Define safe zone parameters
+    green_zone = { # laxmipura
+        'lat': 22.328303179158446,
+        'lon': 73.1471742709198,
+        'radius': 300
+    }
+    global conf
+
+    traci.start(["sumo-gui", "-c", conf])  # Replace with your SUMO configuration
+    all_edges = traci.edge.getIDList()  # Get all edge IDs
+    
+    # Start the monitoring thread
+    monitoring_thread = threading.Thread(target=monitor_all_edges_and_lanes, args=(all_edges,))
+    run_simulation_thread=threading.Thread(target=run_simulation, args=( 1000, red_zones ,green_zone))
+    monitoring_thread.daemon = True 
+    run_simulation_thread.daemon=True # Ensure thread exits when main program ends
+    monitoring_thread.start()
+    run_simulation_thread.start()
+
+
+    # Main simulation loop
+    while traci.simulation.getMinExpectedNumber() > 0:
+        traci.simulationStep()  # Proceed with the simulation step
+        print(f"Monitored edges with high traffic: {got}")  # Access the 'got' list in the main thread
+    # Close the simulation
+    traci.close()
+
+
+
+
+
+def run_simulation( duration=1000, red_zone_data=None, safe_zone_data=None, vehicle_data_dict=None):
+    global conf
+    print(conf)
+    sumoCmd = ["sumo-gui", "-c", conf]
     traci.start(sumoCmd)
 
     if red_zone_data:
@@ -571,6 +630,11 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_dat
     #passenger_ids = [v['id'] for v in vehicle_data_dict.get('passenger', [])]
 
     for step in range(duration):
+        if step == 100:
+            all_edges = traci.edge.getIDList()
+            monitor_all_edges_and_lanes(all_edges)       
+            print(got)  
+
         traci.simulationStep()
         vehicle_ids = traci.vehicle.getIDList()
         for vehicle_id in vehicle_ids:
@@ -593,31 +657,9 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_dat
 
     traci.close()
 
-
-
-
-
 if __name__ == "__main__":
     # Define red zone parameters
-    red_zones = [
-        { # siddharth bungalows , sama
-            'lat': 22.33779597622535,
-            'lon': 73.20539458409085,
-            'radius': 1000  # Adjust the radius as needed
-        },
-        { # random near
-            'lat':22.321066599415307,
-            'lon': 73.19607730306171,
-            'radius': 1000
-        }
-    ]
-
-    # Define safe zone parameters
-    green_zone = { # laxmipura
-        'lat': 22.328303179158446,
-        'lon': 73.1471742709198,
-        'radius': 300
-    }
+    
 
 
     # #clean("osm.passenger.trips.xml")
@@ -680,4 +722,6 @@ if __name__ == "__main__":
     # update_data(dfd)
 
     #############
-    run_simulation(conf, duration=1000, red_zone_data=red_zones, safe_zone_data=green_zone)
+    main()
+    
+    
