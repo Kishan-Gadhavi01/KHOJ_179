@@ -544,6 +544,7 @@ class WaterLoggingZone:
         )
 
 
+
 # dictionary to store traveled paths for each vehicle
 vehicle_trails = {}
 
@@ -664,7 +665,22 @@ def is_edge_blocked(edge_id):
     # hypothetically check an incident-based condition here
     return random.choice([True, False])
 
+
 def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_data=None, water_logging_data=None, vehicle_data_dict=None):
+
+got=[]
+def monitor_all_edges_and_lanes(edges):
+    print("Lane IDs and vehicle counts for each edge:")
+   
+    for edge in edges:
+        vehicle_count = traci.edge.getLastStepVehicleNumber(edge)  # Get lane objects for the edge
+        if vehicle_count > 10:
+            got.append([edge,vehicle_count])
+
+            # Print the results
+            
+
+
     sumoCmd = ["sumo-gui", "-c", config_file]
     traci.start(sumoCmd)
 
@@ -725,8 +741,18 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_dat
     for step in range(duration):
         traci.simulationStep()
 
+
         for dynamic_zone in dynamic_zones:
             dynamic_zone.update_zone(step)
+
+
+      
+        if step == 200:
+            all_edges = traci.edge.getIDList()
+            monitor_all_edges_and_lanes(all_edges)       
+            print(got)
+            
+        
 
         vehicle_ids = traci.vehicle.getIDList()
         for vehicle_id in vehicle_ids:
@@ -746,9 +772,12 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_dat
 
             if len(vehicle_paths[vehicle_id]) > 100:
                 vehicle_paths[vehicle_id].pop(0)
+
             # update_vehicle_trail(vehicle_id, vehicle_paths[vehicle_id], vehicle_colors[vehicle_id])
             update_vehicle_trails()
+
         if step % 100 == 0:
+            
             print(f"Simulation step: {step}")
 
     for vehicle_id in vehicle_paths.keys():
@@ -787,25 +816,25 @@ if __name__ == "__main__":
         }
     ]
 
-    route_files = get_route_files_from_config(conf, script_directory)
-    vehicle_data_dict = gather_data(route_files)
+#     route_files = get_route_files_from_config(conf, script_directory)
+#     vehicle_data_dict = gather_data(route_files)
 
 
-    additional_data = {
-        'motorcycle': [
-            {'id': 'motorcycle1', 'type': 'motorcycle_motorcycle', 'depart': '3599.96', 'departLane': 'best', 'from': '-922051277#0', 'to': '-29874027'}
-        ],
-        'passenger': [
-            {'id': 'veh1', 'type': 'veh_passenger', 'depart': '300.00', 'departLane': 'best', 'from': '-29875742', 'to': '29873850'}
-        ],
-        'pedestrian': [
-            {'id': 'ped1', 'type': 'ped_pedestrian', 'depart': '4.00', 'walk_edges': ['29873850', '29873851']}
-        ]
-    }
+    # additional_data = {
+    #     'motorcycle': [
+    #         {'id': 'motorcycle1', 'type': 'motorcycle_motorcycle', 'depart': '3599.96', 'departLane': 'best', 'from': '-922051277#0', 'to': '-29874027'}
+    #     ],
+    #     'passenger': [
+    #         {'id': 'veh1', 'type': 'veh_passenger', 'depart': '300.00', 'departLane': 'best', 'from': '-29875742', 'to': '29873850'}
+    #     ],
+    #     'pedestrian': [
+    #         {'id': 'ped1', 'type': 'ped_pedestrian', 'depart': '4.00', 'walk_edges': ['29873850', '29873851']}
+    #     ]
+    # }
 
-    df = make_df(vehicle_data_dict)
-    print(df["motorcycle"])
-    print(df["passenger"])
+    # df = make_df(vehicle_data_dict)
+    # print(df["motorcycle"])
+    # print(df["passenger"])
 
 
     green_zone = {
@@ -835,22 +864,24 @@ if __name__ == "__main__":
     }
     ]
 
-    Redges = [geo_TO_edges(where=zone) for zone in red_zones]
-    gedges = geo_TO_edges(where=green_zone)
+#     Redges = [geo_TO_edges(where=zone) for zone in red_zones]
+#     gedges = geo_TO_edges(where=green_zone)
 
 
-    print(geo_TO_edges(where=green_zone, config_file=conf))
+#     print(geo_TO_edges(where=green_zone, config_file=conf))
 
-    df = make_df(vehicle_data_dict)
-    print(df["motorcycle"])
-    print(df["passenger"])
 
-    update_column(df, "to", filter_list=None, listt=["1293567960"])
-    print(df["motorcycle"])
-    print(df["passenger"])
-    dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
-    print(dfd["passenger"])
-    update_data(dfd, conf)
+    # df = make_df(vehicle_data_dict)
+    # print(df["motorcycle"])
+    # print(df["passenger"])
+
+
+#     update_column(df, "to", filter_list=None, listt=["1293567960"])
+#     print(df["motorcycle"])
+#     print(df["passenger"])
+#     dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
+#     print(dfd["passenger"])
+#     update_data(dfd, conf)
     run_simulation(conf, duration=1000, red_zone_data=red_zones, safe_zone_data=green_zone, water_logging_data= water_logging_data, vehicle_data_dict=vehicle_data_dict)
     evacuation_time_seconds = calculate_evacuation_time_in_seconds(
         0,
