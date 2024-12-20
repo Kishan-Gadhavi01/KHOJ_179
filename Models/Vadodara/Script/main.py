@@ -446,26 +446,64 @@ def clean_file(root):
 
 ############ File handling
 
-def create_filled_red_zone(lat, lon, radius, poly_id="red_zone"):
-    x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
+class DynamicFilledZone:
+    def __init__(self, lat, lon, initial_radius, poly_id="zone", color=(255, 0, 0, 127), size_change=False, size_change_rate=0, start_step=0, end_step=None, max_radius=None):
+        """
+        :param lat: Latitude of the center of the zone.
+        :param lon: Longitude of the center of the zone.
+        :param initial_radius: Initial radius of the zone.
+        :param poly_id: ID of the polygon.
+        :param color: Color of the polygon.
+        :param size_change: Boolean indicating if the size should change over time.
+        :param size_change_rate: Rate at which the size changes per step.
+        :param start_step: Simulation step at which the zone appears.
+        :param end_step: Simulation step at which the zone disappears (optional).
+        :param max_radius: Maximum radius the zone can reach (optional).
+        """
+        self.lat = lat
+        self.lon = lon
+        self.initial_radius = initial_radius
+        self.poly_id = poly_id
+        self.color = color
+        self.size_change = size_change
+        self.size_change_rate = size_change_rate
+        self.start_step = start_step
+        self.end_step = end_step
+        self.max_radius = max_radius
+        self.x, self.y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
 
-    # generate points for the circle approximation
-    num_points = 72  # higher values create a smoother circle
-    circle_points = []
-    for i in range(num_points):
-        angle = 2 * math.pi * i / num_points
-        point_x = x + radius * math.cos(angle)
-        point_y = y + radius * math.sin(angle)
-        circle_points.append((point_x, point_y))
+    def update_zone(self, step):
+        if step < self.start_step:
+            return
+        if self.end_step is not None and step > self.end_step:
+            if self.poly_id in traci.polygon.getIDList():
+                traci.polygon.remove(self.poly_id)
+            return
 
-    # add the polygon to SUMO with a semi-transparent red fill
-    traci.polygon.add(
-        polygonID=poly_id,
-        shape=circle_points,
-        color=(255, 0, 0, 127),
-        layer=1
-    )
-    print(f"Filled red zone created with center at ({lat}, {lon}) and radius {radius}.")
+        current_radius = self.initial_radius
+        if self.size_change:
+            current_radius += self.size_change_rate * (step - self.start_step)
+            if self.max_radius is not None:
+                current_radius = min(current_radius, self.max_radius)
+
+        num_points = 72
+        circle_points = []
+        for i in range(num_points):
+            angle = 2 * math.pi * i / num_points
+            point_x = self.x + current_radius * math.cos(angle)
+            point_y = self.y + current_radius * math.sin(angle)
+            circle_points.append((point_x, point_y))
+
+        if self.poly_id in traci.polygon.getIDList():
+            traci.polygon.remove(self.poly_id)
+
+        traci.polygon.add(
+            polygonID=self.poly_id,
+            shape=circle_points,
+            color=self.color,
+            fill=True,
+            layer=1
+        )
 
 def create_filled_zone(lat, lon, radius, poly_id="zone", color=(255, 0, 0, 127)):
     x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
@@ -510,9 +548,6 @@ def update_vehicle_trail(veh_id, path, color):
     )
 
 def update_vehicle_trails():
-    """
-    Tracks and visualizes the vehicle trail (route) dynamically as polygons.
-    """
     for veh_id in traci.vehicle.getIDList():
         position = traci.vehicle.getPosition(veh_id)  # (x, y)
 
@@ -521,24 +556,21 @@ def update_vehicle_trails():
         else:
             vehicle_trails[veh_id].append(position)
 
-        # draw trail using a unique polygon ID per vehicle
         trail_points = vehicle_trails[veh_id]
 
-        if len(trail_points) > 100:  # limit to 100 points for performance
-            trail_points = trail_points[-100:]
+        if len(trail_points) > 70:  # Limit to 50 points for performance
+            trail_points = trail_points[-70:]
             vehicle_trails[veh_id] = trail_points
 
-        # add polygon for the trail (remove existing one to update)
         polygon_id = f"trail_{veh_id}"
         if polygon_id in traci.polygon.getIDList():
-            traci.polygon.remove(polygon_id)  # remove previous polygon
+            traci.polygon.remove(polygon_id)
 
-        # add the new polygon (polyline-like trail)
         traci.polygon.add(
             polygonID=polygon_id,
             shape=trail_points,
-            color=(0, 255, 0, 100),
-            layer=1,
+            color=(0, 255, 0, 100),  # Green
+            layer=10,
             fill=False
         )
 got=[]
@@ -597,37 +629,119 @@ def main( ):
 
 
 
-def run_simulation( duration=1000, red_zone_data=None, safe_zone_data=None, vehicle_data_dict=None):
-    global conf
-    print(conf)
-    sumoCmd = ["sumo-gui", "-c", conf]
+
+def compute_safe_zone_center(safe_zone_data):
+    return (safe_zone_data['lat'], safe_zone_data['lon'])
+
+def get_network_state():
+    # get real-time vehicle count per edge and other traffic conditions
+    network_state = {}
+    for edge_id in traci.edge.getIDList():
+        # real-time vehicle count for each edge
+        vehicle_count = traci.edge.getLastStepVehicleNumber(edge_id)
+        congestion_factor = compute_congestion_factor(vehicle_count, edge_id)
+        network_state[edge_id] = congestion_factor  # store the traffic congestion factor for each edge
+    return network_state
+
+def compute_congestion_factor(vehicle_count, edge_id):
+    """
+    calculates the congestion factor for a given edge.
+    higher vehicle counts (traffic) result in higher congestion factor.
+    """
+    max_capacity = traci.edge.getLaneNumber(edge_id) * 20  # approximate number of vehicles that can fit in the lanes
+    congestion_factor = (vehicle_count / max_capacity) ** 2  # squared term penalizes more congested roads
+    return max(congestion_factor, 1)  # minimum congestion factor is 1 (free-flow traffic)
+
+def reroute_vehicle(vehicle_id, destination, network_state):
+    current_edge = traci.vehicle.getRoadID(vehicle_id)
+
+    all_routes = traci.simulation.getRoutes(current_edge, destination)
+
+    optimal_route = None
+    min_travel_time = float('inf')
+
+    for route in all_routes:
+        total_cost = 0
+        total_distance = 0
+        blocked = False
+
+        for edge in route:
+            congestion_factor = network_state.get(edge, 5)  # default to 1 (free-flow)
+            edge_length = traci.edge.getLength(edge)  # get length of the edge
+            total_distance += edge_length
+
+            # penalize routes with higher congestion factor
+            total_cost += congestion_factor * edge_length
+
+            # check for potential blockages or incidents
+            if is_edge_blocked(edge):
+                blocked = True
+                break
+
+        if blocked:
+            continue
+
+        # include distance factor in the total cost for a more balanced path finding
+        adjusted_travel_time = total_cost + total_distance * random.random()
+
+        if adjusted_travel_time < min_travel_time:
+            min_travel_time = adjusted_travel_time
+            optimal_route = route
+
+    if optimal_route:
+        traci.vehicle.setRoute(vehicle_id, optimal_route)  # set the best route considering traffic
+
+def is_edge_blocked(edge_id):
+    """
+    determines whether an edge is blocked due to an incident, traffic accident, or a roadblock.
+    """
+    # hypothetically check an incident-based condition here
+    return random.choice([True, False])
+
+def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_data=None, vehicle_data_dict=None):
+
     traci.start(sumoCmd)
 
+    dynamic_zones = []
     if red_zone_data:
         for i, red_zone in enumerate(red_zone_data):
             print(f"Creating red zone {i+1} with parameters: {red_zone}")
-            create_filled_zone(
+            dynamic_zone = DynamicFilledZone(
                 lat=red_zone['lat'],
                 lon=red_zone['lon'],
-                radius=red_zone['radius'],
+                initial_radius=red_zone['radius'],
+                size_change=True,  # enable size change if needed
+                size_change_rate=1,  # change rate per step
+                start_step=50,  # example start step
+                # end_step=800,  # example end step
+                max_radius=650,  # example maximum radius
                 poly_id=f"red_zone_{i+1}",
                 color=(255, 0, 0, 127)  # Red
             )
+            dynamic_zones.append(dynamic_zone)
 
     if safe_zone_data:
         print(f"Creating safe zone with parameters: {safe_zone_data}")
-        create_filled_zone(
+        dynamic_zone = DynamicFilledZone(
             lat=safe_zone_data['lat'],
             lon=safe_zone_data['lon'],
-            radius=safe_zone_data['radius'],
+            initial_radius=safe_zone_data['radius'],
+            size_change=False,  # enable size change if needed
+            size_change_rate=1,  # change rate per step
+            start_step=100,  # example start step
+            # end_step=200,
             poly_id="safe_zone",
             color=(0, 255, 0, 127)  # Green
         )
+        dynamic_zones.append(dynamic_zone)
 
     vehicle_paths = {}
     vehicle_colors = {}
 
-    #passenger_ids = [v['id'] for v in vehicle_data_dict.get('passenger', [])]
+
+    passenger_ids = [v['id'] for v in vehicle_data_dict.get('passenger', [])]
+    network_state = get_network_state()
+
 
     for step in range(duration):
         if step == 100:
@@ -636,18 +750,31 @@ def run_simulation( duration=1000, red_zone_data=None, safe_zone_data=None, vehi
             print(got)  
 
         traci.simulationStep()
+
+        for dynamic_zone in dynamic_zones:
+            dynamic_zone.update_zone(step)
+
         vehicle_ids = traci.vehicle.getIDList()
         for vehicle_id in vehicle_ids:
             position = traci.vehicle.getPosition(vehicle_id)
+            x, y = traci.simulation.convertGeo(position[0], position[1], fromGeo=False)
+            nearest_edge = network.getNeighboringEdges(x, y, r=10)
+            if nearest_edge:
+                destination_edge = nearest_edge[0][0].getID()  # edge ID
+                reroute_vehicle(vehicle_id, destination_edge, network_state)
+
             if vehicle_id not in vehicle_paths:
                 vehicle_paths[vehicle_id] = []
                 vehicle_colors[vehicle_id] = (random.randint(0, 255),
                                             random.randint(0, 255),
                                             random.randint(0, 255), 255)
             vehicle_paths[vehicle_id].append(position)
+
             if len(vehicle_paths[vehicle_id]) > 100:
-                vehicle_paths[vehicle_id].pop(0)
-            #update_vehicle_trail(vehicle_id, vehicle_paths[vehicle_id], vehicle_colors[vehicle_id])
+
+            # update_vehicle_trail(vehicle_id, vehicle_paths[vehicle_id], vehicle_colors[vehicle_id])
+            #update_vehicle_trails()
+
         if step % 100 == 0:
             print(f"Simulation step: {step}")
 

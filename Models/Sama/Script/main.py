@@ -7,7 +7,7 @@ import sumolib
 import math
 import pandas as pd
 import random
-import heapq
+import numpy as np
 
 if 'SUMO_HOME' in os.environ:
     sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
@@ -423,25 +423,127 @@ def clean_file(root):
 
 
 
-def create_filled_zone(lat, lon, radius, poly_id="zone", color=(255, 0, 0, 127)):
-    x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
+class DynamicFilledZone:
+    def __init__(self, lat, lon, initial_radius, poly_id="zone", color=(255, 0, 0, 127), size_change=False, size_change_rate=0, start_step=0, end_step=None, max_radius=None):
+        """
+        Initializes the DynamicFilledZone.
 
-    num_points = 72
-    circle_points = []
-    for i in range(num_points):
-        angle = 2 * math.pi * i / num_points
-        point_x = x + radius * math.cos(angle)
-        point_y = y + radius * math.sin(angle)
-        circle_points.append((point_x, point_y))
+        :param lat: Latitude of the center of the zone.
+        :param lon: Longitude of the center of the zone.
+        :param initial_radius: Initial radius of the zone.
+        :param poly_id: ID of the polygon.
+        :param color: Color of the polygon.
+        :param size_change: Boolean indicating if the size should change over time.
+        :param size_change_rate: Rate at which the size changes per step.
+        :param start_step: Simulation step at which the zone appears.
+        :param end_step: Simulation step at which the zone disappears (optional).
+        :param max_radius: Maximum radius the zone can reach (optional).
+        """
+        self.lat = lat
+        self.lon = lon
+        self.initial_radius = initial_radius
+        self.poly_id = poly_id
+        self.color = color
+        self.size_change = size_change
+        self.size_change_rate = size_change_rate
+        self.start_step = start_step
+        self.end_step = end_step
+        self.max_radius = max_radius
+        self.x, self.y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
 
-    traci.polygon.add(
-        polygonID=poly_id,
-        shape=circle_points,
-        color=color,
-        fill=True,
-        layer=1
-    )   
-    print(f"Filled zone created with center at ({lat}, {lon}) and radius {radius}.")
+    def update_zone(self, step):
+        if step < self.start_step:
+            return
+        if self.end_step is not None and step > self.end_step:
+            if self.poly_id in traci.polygon.getIDList():
+                traci.polygon.remove(self.poly_id)
+            return
+
+        current_radius = self.initial_radius
+        if self.size_change:
+            current_radius += self.size_change_rate * (step - self.start_step)
+            if self.max_radius is not None:
+                current_radius = min(current_radius, self.max_radius)
+
+        num_points = 72
+        circle_points = []
+        for i in range(num_points):
+            angle = 2 * math.pi * i / num_points
+            point_x = self.x + current_radius * math.cos(angle)
+            point_y = self.y + current_radius * math.sin(angle)
+            circle_points.append((point_x, point_y))
+
+        if self.poly_id in traci.polygon.getIDList():
+            traci.polygon.remove(self.poly_id)
+
+        traci.polygon.add(
+            polygonID=self.poly_id,
+            shape=circle_points,
+            color=self.color,
+            fill=True,
+            layer=1
+        )
+
+class WaterLoggingZone:
+    def __init__(self, lat, lon, initial_radius, poly_id="water_zone", color=(0, 0, 255, 127), size_change=False, size_change_rate=0, start_step=0, end_step=None, max_radius=None):
+        """
+        Initializes the WaterLoggingZone.
+        """
+        self.lat = lat
+        self.lon = lon
+        self.initial_radius = initial_radius
+        self.poly_id = poly_id
+        self.color = color
+        self.size_change = size_change
+        self.size_change_rate = size_change_rate
+        self.start_step = start_step
+        self.end_step = end_step
+        self.max_radius = max_radius
+        self.x, self.y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
+        self.perlin_offsets = [random.uniform(0, 100) for _ in range(360)]  # Perlin noise offsets for each angle
+
+    def _perlin_noise(self, angle_index):
+        """Generate smooth radius variation using Perlin noise."""
+        return (np.sin(self.perlin_offsets[angle_index] + angle_index * 0.1) + 1) / 2  # Normalize to [0, 1]
+
+    def update_zone(self, step):
+        """Updates the zone and its size."""
+        if step < self.start_step:
+            return
+        if self.end_step is not None and step > self.end_step:
+            if self.poly_id in traci.polygon.getIDList():
+                traci.polygon.remove(self.poly_id)
+            return
+
+        # Calculate current radius
+        current_radius = self.initial_radius
+        if self.size_change:
+            current_radius += self.size_change_rate * (step - self.start_step)
+            if self.max_radius is not None:
+                current_radius = min(current_radius, self.max_radius)
+
+        num_points = 52  # More points for a smoother circle
+        polygon_points = []
+        for i in range(num_points):
+            angle = 2 * math.pi * i / num_points
+            radius_variation = current_radius * (0.9 + 0.2 * self._perlin_noise(i))  # Controlled radius variation
+            point_x = self.x + radius_variation * math.cos(angle)
+            point_y = self.y + radius_variation * math.sin(angle)
+            polygon_points.append((point_x, point_y))
+
+        # Update or create the polygon
+        if self.poly_id in traci.polygon.getIDList():
+            traci.polygon.remove(self.poly_id)
+
+        traci.polygon.add(
+            polygonID=self.poly_id,
+            shape=polygon_points,
+            color=self.color,
+            fill=True,
+            layer=10
+        )
+
+
 
 # dictionary to store traveled paths for each vehicle
 vehicle_trails = {}
@@ -477,8 +579,8 @@ def update_vehicle_trails():
 
         trail_points = vehicle_trails[veh_id]
 
-        if len(trail_points) > 100:  # Limit to 100 points for performance
-            trail_points = trail_points[-100:]
+        if len(trail_points) > 70:  # Limit to 50 points for performance
+            trail_points = trail_points[-70:]
             vehicle_trails[veh_id] = trail_points
 
         polygon_id = f"trail_{veh_id}"
@@ -489,7 +591,7 @@ def update_vehicle_trails():
             polygonID=polygon_id,
             shape=trail_points,
             color=(0, 255, 0, 100),  # Green
-            layer=1,
+            layer=10,
             fill=False
         )
 
@@ -563,6 +665,9 @@ def is_edge_blocked(edge_id):
     # hypothetically check an incident-based condition here
     return random.choice([True, False])
 
+
+def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_data=None, water_logging_data=None, vehicle_data_dict=None):
+
 got=[]
 def monitor_all_edges_and_lanes(edges):
     print("Lane IDs and vehicle counts for each edge:")
@@ -574,31 +679,58 @@ def monitor_all_edges_and_lanes(edges):
 
             # Print the results
             
-def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_data=None, vehicle_data_dict=None):
+
+
     sumoCmd = ["sumo-gui", "-c", config_file]
     traci.start(sumoCmd)
 
+    dynamic_zones = []
     if red_zone_data:
         for i, red_zone in enumerate(red_zone_data):
             print(f"Creating red zone {i+1} with parameters: {red_zone}")
-            safe_zone_center = compute_safe_zone_center(safe_zone_data)
-            create_filled_zone(
+            dynamic_zone = DynamicFilledZone(
                 lat=red_zone['lat'],
                 lon=red_zone['lon'],
-                radius=red_zone['radius'],
+                initial_radius=red_zone['radius'],
+                size_change=True,  # enable size change if needed
+                size_change_rate=1,  # change rate per step
+                start_step=50,  # example start step
+                # end_step=800,  # example end step
+                max_radius=650,  # example maximum radius
                 poly_id=f"red_zone_{i+1}",
                 color=(255, 0, 0, 127)  # Red
             )
+            dynamic_zones.append(dynamic_zone)
 
     if safe_zone_data:
         print(f"Creating safe zone with parameters: {safe_zone_data}")
-        create_filled_zone(
+        dynamic_zone = DynamicFilledZone(
             lat=safe_zone_data['lat'],
             lon=safe_zone_data['lon'],
-            radius=safe_zone_data['radius'],
+            initial_radius=safe_zone_data['radius'],
+            size_change=False,  # enable size change if needed
+            size_change_rate=1,  # change rate per step
+            start_step=100,  # example start step
+            # end_step=200,
             poly_id="safe_zone",
             color=(0, 255, 0, 127)  # Green
         )
+        dynamic_zones.append(dynamic_zone)
+
+    for entry in water_logging_data:
+        water_logging_zone = WaterLoggingZone(
+            lat=entry['lat'],
+            lon=entry['lon'],
+            initial_radius=entry['radius'],
+            size_change=True,
+            size_change_rate=1,
+            start_step=200,
+            end_step=800,
+            max_radius=500,
+            poly_id=f"water_logging_zone_{entry['id']}",  # Use the defined ID
+            color=(0, 0, 255, 127)  # Blue
+        )
+        dynamic_zones.append(water_logging_zone)
 
     vehicle_paths = {}
     vehicle_colors = {}
@@ -608,6 +740,12 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_dat
 
     for step in range(duration):
         traci.simulationStep()
+
+
+        for dynamic_zone in dynamic_zones:
+            dynamic_zone.update_zone(step)
+
+
       
         if step == 200:
             all_edges = traci.edge.getIDList()
@@ -615,6 +753,7 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_dat
             print(got)
             
         
+
         vehicle_ids = traci.vehicle.getIDList()
         for vehicle_id in vehicle_ids:
             position = traci.vehicle.getPosition(vehicle_id)
@@ -633,8 +772,10 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_dat
 
             if len(vehicle_paths[vehicle_id]) > 100:
                 vehicle_paths[vehicle_id].pop(0)
-                
-            update_vehicle_trail(vehicle_id, vehicle_paths[vehicle_id], vehicle_colors[vehicle_id])
+
+            # update_vehicle_trail(vehicle_id, vehicle_paths[vehicle_id], vehicle_colors[vehicle_id])
+            update_vehicle_trails()
+
         if step % 100 == 0:
             
             print(f"Simulation step: {step}")
@@ -644,6 +785,17 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_dat
             traci.gui.trackVehicle("View #0", vehicle_id)
 
     traci.close()
+
+
+def calculate_evacuation_time_in_seconds(first_departure_step, last_arrival_step, step_length):
+    if first_departure_step > last_arrival_step:
+        raise ValueError("Departure step cannot be greater than arrival step.")
+
+    steps = last_arrival_step - first_departure_step
+    evacuation_time_seconds = steps * step_length
+
+    return evacuation_time_seconds
+
 
 
 
@@ -664,8 +816,8 @@ if __name__ == "__main__":
         }
     ]
 
-    route_files = get_route_files_from_config(conf, script_directory)
-    vehicle_data_dict = gather_data(route_files)
+#     route_files = get_route_files_from_config(conf, script_directory)
+#     vehicle_data_dict = gather_data(route_files)
 
 
     # additional_data = {
@@ -684,41 +836,57 @@ if __name__ == "__main__":
     # print(df["motorcycle"])
     # print(df["passenger"])
 
-    # #Generate new entries for 'motorcycle'
-    # new_motorcycle_entries = list(generate_entries(
-    #     df['passenger'],
-    #     noOfEntries=10,
-    #     name='passenger',
-    #     delay=30,
-    #     from_list=['-922051277#0'],
-    #     to_list=['-29874027']
-    # ))
 
-    #update_data(vehicle_data_dict, conf)
-
-    # # Convert the updated dictionary of DataFrames back to a dict of records
-    # dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
-
-    # Pass the red zone data to the simulation
-
-    #print(len(geo_TO_edges(where=red_zone, config_file=conf)))
-
-    sama = {
+    green_zone = {
         'lat': 22.343487781264088,
         'lon': 73.2003789006782,
         'radius': 100  # safe zone
     }
 
-    # print(geo_TO_edges(where=sama, config_file=conf))
+    water_logging_data = [
+    {
+        'id': 1,  # Add unique ID
+        'lat': 22.343487781264088,
+        'lon': 73.2003789006782,
+        'radius': 50
+    },
+    {
+        'id': 2,  # Add unique ID
+        'lat': 22.350479,
+        'lon': 73.172299,
+        'radius': 50
+    },
+    {
+        'id': 3,  # Add unique ID
+        'lat': 22.334077,
+        'lon': 73.179913,
+        'radius': 50
+    }
+    ]
+
+#     Redges = [geo_TO_edges(where=zone) for zone in red_zones]
+#     gedges = geo_TO_edges(where=green_zone)
+
+
+#     print(geo_TO_edges(where=green_zone, config_file=conf))
+
 
     # df = make_df(vehicle_data_dict)
     # print(df["motorcycle"])
     # print(df["passenger"])
 
-    # update_column(df, "to", filter_list=None, listt=["1293567960"])
-    # print(df["motorcycle"])
-    # print(df["passenger"])
-    # dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
-    # print(dfd["passenger"])
-    # update_data(dfd, conf)
-    run_simulation(conf, duration=1000, red_zone_data=red_zones, safe_zone_data=sama, vehicle_data_dict=vehicle_data_dict)
+
+#     update_column(df, "to", filter_list=None, listt=["1293567960"])
+#     print(df["motorcycle"])
+#     print(df["passenger"])
+#     dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
+#     print(dfd["passenger"])
+#     update_data(dfd, conf)
+    run_simulation(conf, duration=1000, red_zone_data=red_zones, safe_zone_data=green_zone, water_logging_data= water_logging_data, vehicle_data_dict=vehicle_data_dict)
+    evacuation_time_seconds = calculate_evacuation_time_in_seconds(
+        0,
+        728,
+        0.02
+    )
+
+    print(f"Evacuation Time: {evacuation_time_seconds} seconds")
