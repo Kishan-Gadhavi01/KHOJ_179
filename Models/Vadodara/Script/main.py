@@ -131,19 +131,15 @@ def geo_TO_edges(where, config_file=conf):
 
         lat=where['lat']
         lon=where['lon']
-        radius=where['radius']
+        r=where['radius']
 
         sumoCmd = ["sumo", "-c", config_file]
 
         try:
             traci.start(sumoCmd)
-            print(f"given : lat is {lat}, lon is {lon}, radius is {radius}")
             x, y = traci.simulation.convertGeo(lon, lat, fromGeo=True)
-            print(f"converted : x is {x}, y is {y}, radius is {radius}")
-            print("finding edges .....")
-            nearest_edge = network.getNeighboringEdges(x, y, r=radius, includeJunctions=True, allowFallback=True)
+            nearest_edge = network.getNeighboringEdges(x, y, r=r, includeJunctions=True, allowFallback=True)
             nearest_edge=[edge.getID() for edge, _ in nearest_edge]
-            print("Got edges")
             return nearest_edge
         except Exception as e:
             print(f"Error during conversion: {e}")
@@ -272,25 +268,6 @@ def generate_entries(df, noOfEntries, name, delay=10, from_list=None, to_list=No
 
 
 ############ File handling
-
-def clean(file_name):
-    
-    try:
-        # Resolve the file path (one directory up from the current script)
-        script_directory = os.path.dirname(os.path.realpath(__file__))
-        file_path = os.path.abspath(os.path.join(script_directory, f"../{file_name}"))
-
-        # Ensure the directory exists
-        if not os.path.exists(file_path):
-            print(f"File {file_path} does not exist. It will be created.")
-
-        # Overwrite the file with the initialized structure
-        initialize_file_structure(file_path)
-        print(f"File {file_path} has been cleaned and initialized.")
-        return True
-    except Exception as e:
-        print(f"Error during cleaning file {file_name}: {e}")
-        return False
 
 def update_data(vehicle_data_dict):
     paths = get_route_files_from_config(conf)
@@ -659,19 +636,34 @@ def run_simulation( duration=1000, red_zone_data=None, safe_zone_data=None, vehi
 
 if __name__ == "__main__":
     # Define red zone parameters
-    
+    red_zones = [
+        {
+            'lat': 22.337596640722587,
+            'lon': 73.20499195576231,
+            'radius': 500  # Adjust the radius as needed
+        },
+        {
+            'lat': 22.335588,
+            'lon': 73.177759,
+            'radius': 500
+        }
+    ]
+
+    # Define safe zone parameters
+    green_zone = {
+        'lat': 22.32997547443082,
+        'lon': 73.14689077865691,
+        'radius': 300
+    }
 
 
-    # #clean("osm.passenger.trips.xml")
-    # #clean("osm.motorcycle.trips.xml")
     # Redges = [geo_TO_edges(where=zone) for zone in red_zones]
-    # Redges=[*Redges[0],*Redges[1]]
     # gedges = geo_TO_edges(where=green_zone)
-    # print(f"Found: Redges={len(Redges)},gedges={len(gedges)}  ")
-    
 
+    # route_files = get_route_files_from_config(conf)
+    # vehicle_data_dict = gather_data(route_files)
 
-
+    # df = make_df(vehicle_data_dict)
 
     # all_edges = network.getEdges()
     # print(all_edges)
@@ -679,31 +671,24 @@ if __name__ == "__main__":
     # edge_ids = [edge.getID() for edge in all_edges]
     # print(edge_ids)
 
-    ######## run this to generate trips
-    # route_files = get_route_files_from_config(conf)
-    # vehicle_data_dict = gather_data(route_files)
-
-    # df = make_df(vehicle_data_dict)
-
-   
     # # Generate new entries for 'motorcycle'
     # new_motorcycle = list(generate_entries(
     #     df['motorcycle'],
-    #     noOfEntries=200,
+    #     noOfEntries=100,
     #     name='motorcycle',
-    #     delay=2,
-    #     from_list=Redges,
-    #     to_list=gedges
+    #     delay=10,
+    #     from_list=edge_ids,
+    #     to_list=edge_ids
     # ))
 
     # # Generate new entries for 'passenger'
     # new_passenger = list(generate_entries(
     #     df['passenger'],
-    #     noOfEntries=200,
+    #     noOfEntries=100,
     #     name='passenger',
-    #     delay=2,
-    #     from_list=Redges,
-    #     to_list=gedges
+    #     delay=10,
+    #     from_list=edge_ids,
+    #     to_list=edge_ids
     # ))
 
     # # Append the new entries back to the 'motorcycle' DataFrame
@@ -721,7 +706,5 @@ if __name__ == "__main__":
     # dfd = {key: dff.to_dict(orient="records") for key, dff in df.items()}
     # update_data(dfd)
 
-    #############
-    main()
-    
-    
+
+    run_simulation( duration=1000, red_zone_data=red_zones, safe_zone_data=green_zone)
