@@ -2,36 +2,56 @@ from tripmanager import *
 
 # Red zones: These are high-risk zones where we want to track vehicle movement
 red_zones = [
-    { # Siddharth Bungalows, Sama
+    { # siddharth bungalows , sama
         'lat': 22.33779597622535,
         'lon': 73.20539458409085,
-        'radius': 1000  # Adjust the radius as needed (in meters)
+        'radius': 1000  # Adjust the radius as needed
     },
-    { # Random location near other zone
-        'lat': 22.321066599415307,
-        'lon': 73.19607730306171,
-        'radius': 1000  # Adjust the radius as needed (in meters)
+    { # Sayaji Baug 
+        'lat':22.309013089338773,
+        'lon': 73.18794929300843,
+        'radius': 1000
+    },
+        { # Mangal Pandey Bridge
+        'lat':22.327122462926578,
+        'lon': 73.19733245781374,
+        'radius': 1000
     }
+
+
 ]
 
-# Define safe zone parameters: This is the low-risk zone (Green Zone) where we expect safe movement
-green_zone = { # Laxmipura
-    'lat': 22.328303179158446,
-    'lon': 73.1471742709198,
-    'radius': 300  # Adjust the radius as needed (in meters)
-}
-
+    # Define safe zone parameters (areas where vehicles are allowed to go freely)
+green_zone = [
+    { 
+        'lat':  22.3221852671073,
+        'lon':  73.20951029691204,
+        'radius': 400  # Adjust the radius as needed
+    },
+    { 
+        'lat':22.333033258815544,
+        'lon': 73.16366701437853,
+        'radius': 400
+    },
+        
+    { 
+        'lat':22.326477067577034,
+        'lon': 73.18899143840308,
+        'radius': 400
+    }
+        
+]
 # Assuming red_zones and green_zone are already defined
 Redges = [geo_to_edges(where=zone) for zone in red_zones]
 # Flatten the list (since geo_to_edges returns a dictionary)
-RMedges = [*Redges[0]['motorcycle'], *Redges[1]['motorcycle']]
-RPedges = [*Redges[0]['passenger'], *Redges[1]['passenger']]
+RMedges = [*Redges[0]['motorcycle'], *Redges[1]['motorcycle'],*Redges[2]['motorcycle']]
+RPedges = [*Redges[0]['passenger'], *Redges[1]['passenger'],*Redges[2]['passenger']]
 print(f"Red zone edges for motorcycles: {len(RMedges)}")
 print(f"Red zone edges for passengers: {len(RPedges)}")
 
-green_zone_edges = geo_to_edges(where=green_zone)
-GMedges = green_zone_edges['motorcycle']
-GPedges = green_zone_edges['passenger']
+Gedges = [geo_to_edges(where=zone) for zone in green_zone]
+GMedges = [*Gedges[0]['motorcycle'], *Gedges[1]['motorcycle'],*Gedges[2]['motorcycle']]
+GPedges = [*Gedges[0]['passenger'], *Gedges[1]['passenger'],*Gedges[2]['passenger']]
 print(f"Green zone edges for motorcycles: {len(GMedges)}")
 print(f"Green zone edges for passengers: {len(GPedges)}")
 
@@ -58,7 +78,7 @@ print("DataFrames created for each vehicle type.")  # Log successful DataFrame c
 # Generate new entries for 'motorcycle' vehicles (adding 10 new motorcycles)
 new_motorcycle = list(generate_entries(
     df['motorcycle'],       # Existing motorcycle data
-    noOfEntries=200,         # Number of new entries to generate
+    noOfEntries=800,         # Number of new entries to generate
     name='motorcycle',      # Type of vehicle being added
     delay=2.5,               # Delay between vehicle departures in seconds
     from_list=RMedges,     # Possible 'from' edges (start locations)
@@ -69,7 +89,7 @@ print(f"Generated new motorcycle entries: {len(new_motorcycle)}")  # Log the num
 # Generate new entries for 'passenger' vehicles (adding 10 new passengers)
 new_passenger = list(generate_entries(
     df['passenger'],        # Existing passenger data
-    noOfEntries=200,         # Number of new entries to generate
+    noOfEntries=400,         # Number of new entries to generate
     name='passenger',       # Type of vehicle being added
     delay=2.5,               # Delay between vehicle departures in seconds
     from_list=RPedges,     # Possible 'from' edges (start locations)
