@@ -1,10 +1,12 @@
 import os
 import sys
 import traci
-import sumolib
 import math
 import random
 import numpy as np
+import time
+start_time = time.time()
+
 
 
 circle_data = [
@@ -19,26 +21,30 @@ if 'SUMO_HOME' in os.environ:
 
 # Define the paths for network and configuration files
 script_directory = os.path.dirname(os.path.abspath(__file__))
-network_path = os.path.abspath(os.path.join(script_directory, "../osm.net.xml.gz"))
 conf = os.path.abspath(os.path.join(script_directory, "../osm.sumocfg"))
 
-# Read the network file into SUMO network object
-network = sumolib.net.readNet(network_path)
+
 
 # VehicleManager class to handle vehicle operations like adding vehicles, getting/setting positions and speed
+
+
 class DynamicCircle:
-    def __init__(self, lat, lon, initial_radius):
+    def __init__(self, lat, lon, initial_radius, end_step=None):
         self.lat = lat
         self.lon = lon
         self.radius = initial_radius
         self.noise_amplitudes = [random.uniform(-98, 50) for _ in range(36)]  # Larger spikes for sharper edges
         self.spiky_points = self.create_spiky_circle_points()  # Create initial spiky points
+        self.end_step = end_step  # Step at which updates will stop
+        self.active = True  # Circle starts as active
 
-    def update_radius(self):
+    def update_radius(self, step):
         """
         Update the radius dynamically for irregular boundary expansion.
+        Stops updating after `end_step` is reached.
         """
-        self.radius += 50  # Expand the circle uniformly
+              
+        self.radius += 1  # Expand the circle uniformly
         self.spiky_points = self.create_spiky_circle_points()  # Recalculate spiky points based on the updated radius
 
     def create_spiky_circle_points(self, num_points=36):
@@ -56,6 +62,7 @@ class DynamicCircle:
             y = self.lon + spiky_radius * math.sin(radians)
             spiky_points.append((x, y))
         return spiky_points
+
 
 class VehicleManager:
     def __init__(self):
@@ -314,47 +321,69 @@ def update_vehicle_trails():
             fill=False
         )
 
+def get_vehicle_counts_by_edge():
+    # Get the list of all vehicles in the simulation
+    vehicle_ids = traci.vehicle.getIDList() 
+    
+    # Create a dictionary to store vehicle counts per edge
+    edge_vehicle_count = {}
+    
+    for vehicle_id in vehicle_ids:
+        # Get the edge where the vehicle is currently located
+        edge_id = traci.vehicle.getRoadID(vehicle_id)
+        
+        # Increment the count for that edge
+        if edge_id not in edge_vehicle_count:
+            edge_vehicle_count[edge_id] = 0
+        edge_vehicle_count[edge_id] += 1
+    
+    return edge_vehicle_count
 # Main simulation function
-def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_data=None, water_logging_data=None, vehicle_data_dict=None):
-    sumoCmd = ["sumo-gui", "-c", config_file]
+def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_data=None, water_logging_data=None, vehicle_data_dict=None, circle_data=circle_data):
+    sumoCmd = ["sumo", "-c", config_file]
     traci.start(sumoCmd)
-    circles = [DynamicCircle(circle['lat'], circle['lon'], circle['radius']) for circle in circle_data]
+
+    # circles = [
+    #     DynamicCircle(circle['lat'], circle['lon'], circle['radius'], end_step=45)
+    #     for i, circle in enumerate(circle_data) 
+    #     if (i + 1) % 3 == 0
+    # ]
     
 
-    dynamic_zones = []
-    if red_zone_data:
-        for i, red_zone in enumerate(red_zone_data):
-            print(f"Creating red zone {i+1} with parameters: {red_zone}")
-            dynamic_zone = DynamicFilledZone(
-                lat=red_zone['lat'],
-                lon=red_zone['lon'],
-                initial_radius=red_zone['radius'],
-                size_change=False,  # enable size change if needed
-                size_change_rate=1,  # change rate per step
-                start_step=50,  # example start step
-                # end_step=800,  # example end step
-                max_radius=1000,  # example maximum radius
-                poly_id=f"red_zone_{i+1}",
-                color=(255, 0, 0, 127)  # Red
-            )
-            dynamic_zones.append(dynamic_zone)
+    # dynamic_zones = []
+    # if red_zone_data:
+    #     for i, red_zone in enumerate(red_zone_data):
+    #         print(f"Creating red zone {i+1} with parameters: {red_zone}")
+    #         dynamic_zone = DynamicFilledZone(
+    #             lat=red_zone['lat'],
+    #             lon=red_zone['lon'],
+    #             initial_radius=red_zone['radius'],
+    #             size_change=False,  # enable size change if needed
+    #             size_change_rate=1,  # change rate per step
+    #             start_step=50,  # example start step
+    #             # end_step=800,  # example end step
+    #             max_radius=1000,  # example maximum radius
+    #             poly_id=f"red_zone_{i+1}",
+    #             color=(255, 0, 0, 127)  # Red
+    #         )
+    #         dynamic_zones.append(dynamic_zone)
 
-    if safe_zone_data:
-        for i, ged_zone in enumerate(safe_zone_data):
-            print(f"Creating ged zone {i+1} with parameters: {ged_zone}")
-            dynamic_zone = DynamicFilledZone(
-                lat=ged_zone['lat'],
-                lon=ged_zone['lon'],
-                initial_radius=ged_zone['radius'],
-                size_change=False,  # enable size change if needed
-                size_change_rate=1,  # change rate per step
-                start_step=50,  # example start step
-                # end_step=800,  # example end step
-                # max_radius=1000,  # example maximum radius
-                poly_id=f"ged_zone_{i+1}",
-                color=(0, 255, 0, 200)  # Red
-            )
-            dynamic_zones.append(dynamic_zone)
+    # if safe_zone_data:
+    #     for i, ged_zone in enumerate(safe_zone_data):
+    #         print(f"Creating ged zone {i+1} with parameters: {ged_zone}")
+    #         dynamic_zone = DynamicFilledZone(
+    #             lat=ged_zone['lat'],
+    #             lon=ged_zone['lon'],
+    #             initial_radius=ged_zone['radius'],
+    #             size_change=False,  # enable size change if needed
+    #             size_change_rate=1,  # change rate per step
+    #             start_step=50,  # example start step
+    #             # end_step=800,  # example end step
+    #             # max_radius=1000,  # example maximum radius
+    #             poly_id=f"ged_zone_{i+1}",
+    #             color=(0, 255,0 , 200)  # Red
+    #         )
+    #         dynamic_zones.append(dynamic_zone)
 
     # for entry in water_logging_data:
     #     water_logging_zone = WaterLoggingZone(
@@ -370,47 +399,55 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_dat
     #         color=(0, 0, 255, 127)  # Blue
     #     )
     #     dynamic_zones.append(water_logging_zone)
-        if step >= 5:
-            for i, circle in enumerate(circles):
-                circle.update_radius()
-
-                # Get the updated spiky points after radius change
-                circle_points = circle.spiky_points
-
-                # Remove and re-add the polygon to update it (this is needed to simulate the radius change)
-                polygon_id = f"circle_polygon_{i+1}"
-                if polygon_id in traci.polygon.getIDList():
-                    traci.polygon.remove(polygon_id)  # Remove existing polygon
-
-                # Add the updated polygon with spiky boundaries
-                traci.polygon.add(
-                    polygon_id,
-                    circle_points,
-                    color=(0, 0, 255, 128),  # Blue color with transparency
-                    layer=1,
-                    fill=True
-                )
+        
     
     for step in range(duration):
         traci.simulationStep()
-        if step==0:
-        #     junction_id = "cluster_319299724_3738686326_8650508223"
-        #     incoming_edges = traci.junction.getIncomingEdges(junction_id)  # Use sumolib or manual mapping
-             slow= ["361899467#1","361899464#0","361899467#0"] 
-             for edge in slow:                            
-                traci.edge.setMaxSpeed(edge,1)
-        # if step==260:
-        #     for edge in incoming_edges:                              
-        #         traci.edge.setMaxSpeed(edge,50)
-             
-
-        for dynamic_zone in dynamic_zones:
-            dynamic_zone.update_zone(step)
-
-            #   update_vehicle_trails()
-        if step % 100 == 0:
-            print(f"Simulation step: {step}")
         
+
+        # # if step==0:
+        # #     junction_id = "cluster_319299724_3738686326_8650508223"
+        # #     incoming_edges = traci.junction.getIncomingEdges(junction_id)  # Use sumolib or manual mapping
+        #     #  slow= ["361899467#1","361899464#0","361899467#0", "757107596#1", "361899472", "921930233#1", "933225158#4", "361899480#3", "361899464#1","1316332627","370138510",]
+        #     #  for edge in slow:                            
+        #     #     traci.edge.setMaxSpeed(edge,1)
+        # # if step==260:
+        # #     for edge in incoming_edges:                              
+        # #         traci.edge.setMaxSpeed(edge,50)  
+        # if step < 50:
+        #     for i, circle in enumerate(circles):
+            
+        #         circle.update_radius(step=step)
+
+        #     # Get the updated spiky points after radius change
+        #         circle_points = circle.spiky_points
+
+        #         # Remove and re-add the polygon to update it (this is needed to simulate the radius change)
+        #         polygon_id = f"circle_polygon_{i+1}"
+        #         if polygon_id in traci.polygon.getIDList():
+        #             traci.polygon.remove(polygon_id)  # Remove existing polygon
+
+        #         # Add the updated polygon with spiky boundaries
+        #         traci.polygon.add(
+        #             polygon_id,
+        #             circle_points,
+        #             color=(0, 0, 255, 128),  # Blue color with transparency
+        #             layer=1,
+        #             fill=True
+        #         )     
+        # for dynamic_zone in dynamic_zones:
+        #     dynamic_zone.update_zone(step)
+            #update_vehicle_trails()
+            #   update_vehicle_trails()
+        if (step + 1) % 100 == 0:
+                print(f"Simulation step: {step}")
+                edge_vehicle_count = get_vehicle_counts_by_edge()
+                
+                #Print vehicle counts for each edge at the specified step
+                print(f"Step {step + 1}")
+                for edge_id, count in edge_vehicle_count.items():
+                    print(f"  Edge {edge_id} has {count} vehicles")
+                print(f"Simulation step: {step}")    
        
 
     
@@ -482,7 +519,11 @@ if __name__ == "__main__":
     ]  
 
     # Run the simulation with the defined red and safe zones
-    run_simulation(conf, duration=2500, red_zone_data=red_zones, safe_zone_data=green_zone)
+    run_simulation(conf, duration=2500, red_zone_data=red_zones, safe_zone_data=green_zone, circle_data=circle_data)
     evac_time = calculate_evacuation_time_in_seconds(0, 2422, 60)
-    print(f"Evacuation Time: {evac_time:.2f} minutes")
-   
+
+    end_time = time.time()
+
+    # Calculate and display the total runtime
+    total_runtime = end_time - start_time
+    print(f"Total runtime: {total_runtime:.2f} seconds. \n evacuation time {end_time} ")
