@@ -8,7 +8,6 @@ import math
 import pandas as pd
 import random
 import numpy as np
-
 if 'SUMO_HOME' in os.environ:
     sys.path.append(os.path.join(os.environ['SUMO_HOME'], 'tools'))
 
