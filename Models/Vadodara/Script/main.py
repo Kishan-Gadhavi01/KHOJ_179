@@ -340,50 +340,50 @@ def get_vehicle_counts_by_edge():
     return edge_vehicle_count
 # Main simulation function
 def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_data=None, water_logging_data=None, vehicle_data_dict=None, circle_data=circle_data):
-    sumoCmd = ["sumo", "-c", config_file]
+    sumoCmd = ["sumo-gui", "-c", config_file]
     traci.start(sumoCmd)
 
-    # circles = [
-    #     DynamicCircle(circle['lat'], circle['lon'], circle['radius'], end_step=45)
-    #     for i, circle in enumerate(circle_data) 
-    #     if (i + 1) % 3 == 0
-    # ]
+    circles = [
+        DynamicCircle(circle['lat'], circle['lon'], circle['radius'], end_step=45)
+        for i, circle in enumerate(circle_data) 
+        if (i + 1) % 3 == 0
+    ]
     
 
-    # dynamic_zones = []
-    # if red_zone_data:
-    #     for i, red_zone in enumerate(red_zone_data):
-    #         print(f"Creating red zone {i+1} with parameters: {red_zone}")
-    #         dynamic_zone = DynamicFilledZone(
-    #             lat=red_zone['lat'],
-    #             lon=red_zone['lon'],
-    #             initial_radius=red_zone['radius'],
-    #             size_change=False,  # enable size change if needed
-    #             size_change_rate=1,  # change rate per step
-    #             start_step=50,  # example start step
-    #             # end_step=800,  # example end step
-    #             max_radius=1000,  # example maximum radius
-    #             poly_id=f"red_zone_{i+1}",
-    #             color=(255, 0, 0, 127)  # Red
-    #         )
-    #         dynamic_zones.append(dynamic_zone)
+    dynamic_zones = []
+    if red_zone_data:
+        for i, red_zone in enumerate(red_zone_data):
+            print(f"Creating red zone {i+1} with parameters: {red_zone}")
+            dynamic_zone = DynamicFilledZone(
+                lat=red_zone['lat'],
+                lon=red_zone['lon'],
+                initial_radius=red_zone['radius'],
+                size_change=False,  # enable size change if needed
+                size_change_rate=1,  # change rate per step
+                start_step=50,  # example start step
+                # end_step=800,  # example end step
+                max_radius=1000,  # example maximum radius
+                poly_id=f"red_zone_{i+1}",
+                color=(255, 0, 0, 127)  # Red
+            )
+            dynamic_zones.append(dynamic_zone)
 
-    # if safe_zone_data:
-    #     for i, ged_zone in enumerate(safe_zone_data):
-    #         print(f"Creating ged zone {i+1} with parameters: {ged_zone}")
-    #         dynamic_zone = DynamicFilledZone(
-    #             lat=ged_zone['lat'],
-    #             lon=ged_zone['lon'],
-    #             initial_radius=ged_zone['radius'],
-    #             size_change=False,  # enable size change if needed
-    #             size_change_rate=1,  # change rate per step
-    #             start_step=50,  # example start step
-    #             # end_step=800,  # example end step
-    #             # max_radius=1000,  # example maximum radius
-    #             poly_id=f"ged_zone_{i+1}",
-    #             color=(0, 255,0 , 200)  # Red
-    #         )
-    #         dynamic_zones.append(dynamic_zone)
+    if safe_zone_data:
+        for i, ged_zone in enumerate(safe_zone_data):
+            print(f"Creating ged zone {i+1} with parameters: {ged_zone}")
+            dynamic_zone = DynamicFilledZone(
+                lat=ged_zone['lat'],
+                lon=ged_zone['lon'],
+                initial_radius=ged_zone['radius'],
+                size_change=False,  # enable size change if needed
+                size_change_rate=1,  # change rate per step
+                start_step=50,  # example start step
+                # end_step=800,  # example end step
+                # max_radius=1000,  # example maximum radius
+                poly_id=f"ged_zone_{i+1}",
+                color=(0, 255,0 , 200)  # Red
+            )
+            dynamic_zones.append(dynamic_zone)
 
     # for entry in water_logging_data:
     #     water_logging_zone = WaterLoggingZone(
@@ -403,58 +403,87 @@ def run_simulation(config_file, duration=1000, red_zone_data=None, safe_zone_dat
     
     for step in range(duration):
         traci.simulationStep()
-        
+        if  step % 10 == 0:
+                TrafficHandler(speed_threshold=1)
+                            
 
-        # # if step==0:
-        # #     junction_id = "cluster_319299724_3738686326_8650508223"
-        # #     incoming_edges = traci.junction.getIncomingEdges(junction_id)  # Use sumolib or manual mapping
-        #     #  slow= ["361899467#1","361899464#0","361899467#0", "757107596#1", "361899472", "921930233#1", "933225158#4", "361899480#3", "361899464#1","1316332627","370138510",]
-        #     #  for edge in slow:                            
-        #     #     traci.edge.setMaxSpeed(edge,1)
-        # # if step==260:
-        # #     for edge in incoming_edges:                              
-        # #         traci.edge.setMaxSpeed(edge,50)  
-        # if step < 50:
-        #     for i, circle in enumerate(circles):
+        # if step==0:
+        #     junction_id = "cluster_319299724_3738686326_8650508223"
+        #     incoming_edges = traci.junction.getIncomingEdges(junction_id)  # Use sumolib or manual mapping
+            #  slow= ["361899467#1","361899464#0","361899467#0", "757107596#1", "361899472", "921930233#1", "933225158#4", "361899480#3", "361899464#1","1316332627","370138510",]
+            #  for edge in slow:                            
+            #     traci.edge.setMaxSpeed(edge,1)
+        # if step==260:
+        #     for edge in incoming_edges:                              
+        #         traci.edge.setMaxSpeed(edge,50)  
+        if step < 50:
+            for i, circle in enumerate(circles):
             
-        #         circle.update_radius(step=step)
+                circle.update_radius(step=step)
 
-        #     # Get the updated spiky points after radius change
-        #         circle_points = circle.spiky_points
+            # Get the updated spiky points after radius change
+                circle_points = circle.spiky_points
 
-        #         # Remove and re-add the polygon to update it (this is needed to simulate the radius change)
-        #         polygon_id = f"circle_polygon_{i+1}"
-        #         if polygon_id in traci.polygon.getIDList():
-        #             traci.polygon.remove(polygon_id)  # Remove existing polygon
+                # Remove and re-add the polygon to update it (this is needed to simulate the radius change)
+                polygon_id = f"circle_polygon_{i+1}"
+                if polygon_id in traci.polygon.getIDList():
+                    traci.polygon.remove(polygon_id)  # Remove existing polygon
 
-        #         # Add the updated polygon with spiky boundaries
-        #         traci.polygon.add(
-        #             polygon_id,
-        #             circle_points,
-        #             color=(0, 0, 255, 128),  # Blue color with transparency
-        #             layer=1,
-        #             fill=True
-        #         )     
-        # for dynamic_zone in dynamic_zones:
-        #     dynamic_zone.update_zone(step)
-            #update_vehicle_trails()
+                # Add the updated polygon with spiky boundaries
+                traci.polygon.add(
+                    polygon_id,
+                    circle_points,
+                    color=(0, 0, 255, 128),  # Blue color with transparency
+                    layer=1,
+                    fill=True
+                )     
+        for dynamic_zone in dynamic_zones:
+            dynamic_zone.update_zone(step)
+            # update_vehicle_trails()
             #   update_vehicle_trails()
-        if (step + 1) % 100 == 0:
-                print(f"Simulation step: {step}")
-                edge_vehicle_count = get_vehicle_counts_by_edge()
-                
-                #Print vehicle counts for each edge at the specified step
-                print(f"Step {step + 1}")
-                for edge_id, count in edge_vehicle_count.items():
-                    print(f"  Edge {edge_id} has {count} vehicles")
-                print(f"Simulation step: {step}")    
-       
-
+        
     
 
     traci.close()
 
 
+def TrafficHandler(speed_threshold=5):
+    vehicle_ids = traci.vehicle.getIDList()
+    
+    for vehicle_id in vehicle_ids:
+        # Get the current speed of the vehicle
+        vehicle_speed = traci.vehicle.getSpeed(vehicle_id)
+
+        # Get the current road/edge the vehicle is on
+        current_edge = traci.vehicle.getRoadID(vehicle_id)
+
+        # Get the vehicle's current route (if any)
+        current_route = traci.vehicle.getRoute(vehicle_id)
+
+        # Check if the vehicle's speed is below the threshold and it's not on its starting edge
+        if vehicle_speed <= speed_threshold:
+            print(f"Threshold Alert: Vehicle {vehicle_id} is moving slowly: {vehicle_speed} m/s")
+            
+            if current_route:
+                # Check if the vehicle is still on the first edge of its route (starting point)
+                start_edge = current_route[0]  # Get the first edge of the route (start point)
+                
+                if current_edge != start_edge:
+                    # If the vehicle is not on its starting edge, attempt to find an alternate route
+                    destination_edge = current_route[-1]  # Get the last edge of the current route (destination)
+                    
+                    # Find an alternative route to the destination from the current edge
+                    alternative_route = traci.simulation.findRoute(current_edge, destination_edge)
+                    
+                    if alternative_route.edges:
+                        # Set the new route for the vehicle
+                        traci.vehicle.setRoute(vehicle_id, alternative_route.edges)
+                        print(f"Rerouted vehicle {vehicle_id} from {current_edge} to {destination_edge}: {alternative_route.edges}")
+                    else:
+                        print(f"No valid alternate route found for vehicle {vehicle_id} from {current_edge} to {destination_edge}")
+                else:
+                    print(f"Vehicle {vehicle_id} is still at the start edge {start_edge}. Not rerouting.")
+ 
 def calculate_evacuation_time_in_seconds(first_departure_step, last_arrival_step, step_length):
     if first_departure_step > last_arrival_step:
         raise ValueError("Departure step cannot be greater than arrival step.")
